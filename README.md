@@ -38,10 +38,11 @@ pip install opencv-python
 [Link to Model Weight for Meta-Wolrd](https://huggingface.co/yinxinyuchen/evo1_metaworld/tree/main/step_65000)
 
 ##### 2.2 Adjust Server
+
 Evo_1_clean/miravla/scripts/evo1_server_json.py
 
-Modify the ckpk dir of the 149 line to where you download the model weight:
-
+Modify the checkpoint dir of the 149 line to where you download the model weight:
+[this file](miravla/scripts/evo1_server_json.py#L149)
 ```bash
 ckpt_dir = "/home/dell/checkpoints/Evo1_700m/evo1_metaworld/step_65000/"
 ```
