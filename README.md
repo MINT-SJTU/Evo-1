@@ -32,6 +32,7 @@ pip install mujoco
 pip install metaworld
 pip install websockets
 pip install opencv-python
+pip install packaging
 ```
 
 #### 2. Run the weight and code
