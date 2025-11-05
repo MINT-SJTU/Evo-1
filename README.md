@@ -68,3 +68,45 @@ cd MetaWorld_evaluation
 python mt50_evo1_client_prompt.py
 
 ```
+
+### LIBERO Benchmark
+#### 1. Prepare the environment for LIBERO
+
+```bash
+conda create -n libero python=3.8.13
+conda activate libero
+git clone https://github.com/Lifelong-Robot-Learning/LIBERO.git
+cd LIBERO
+pip install -r requirements.txt
+pip install torch==1.11.0+cu113 torchvision==0.12.0+cu113 torchaudio==0.11.0 --extra-index-url https://download.pytorch.org/whl/cu113
+pip install -e .
+```
+
+#### 2. Run the weight and code
+##### 2.1 Download Model Weight
+[Link to Model Weight for LIBERO](https://huggingface.co/liujiting/evo1_libero/tree/main)
+
+##### 2.2 Adjust Server
+
+Evo_1_clean/miravla/scripts/evo1_server_json.py
+
+Modify the checkpoint dir to where you download the model weight:
+[Modify the checkpoint dir](miravla/scripts/evo1_server_json.py#L149)
+
+
+#### 3. Run the simulation evaluation
+##### Download Model Weight
+
+
+```bash
+# Start Evo-1 server (In terminal 1)
+conda activate Evo1
+cd Evo_1
+python scripts/evo1_server_json.py
+
+# Start LIBERO client (In terminal 2)
+conda activate libero
+cd LIBERO_evaluation
+python libero_client_4tasks.py
+
+```
