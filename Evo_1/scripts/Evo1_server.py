@@ -11,7 +11,7 @@ import torch
 from PIL import Image
 from torchvision import transforms
 from fvcore.nn import FlopCountAnalysis
-from deepspeed.utils.zero_to_fp32 import get_fp32_state_dict_from_zero_checkpoint
+
 
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
