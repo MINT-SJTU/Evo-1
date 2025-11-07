@@ -32,6 +32,8 @@ class Args():
 args = Args()
 
 ########################################
+
+os.makedirs(os.path.dirname(args.log_file), exist_ok=True)
 # ========= Logging =========
 logging.basicConfig(
     level=logging.INFO,
