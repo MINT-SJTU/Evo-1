@@ -26,6 +26,7 @@ LOG_PATH = make_log_path("mt50")
 
 SHOW_WINDOW = True
 SAVE_IMAGE = False
+SAVE_VIDEO = True  # save the video of each episode to disk
 
 # ===================== Debug image saving =====================
 INSPECT_SAMPLE_PER_EPISODE = True        
@@ -35,6 +36,13 @@ APPLY_CENTER_CROP = True
 CROP_KEEP_RATIO = 2/3                    
 INSPECT_SAVE_STEP_TAG = True             
 # =============================================================
+
+# ===================== Debug video saving ====================
+VIDEO_SAVE_DIR = "episode_videos"
+VIDEO_FPS = 10  # Original writing frame rate (used to control playback speed; the smaller the value, the slower the playback).
+VIDEO_DUP_FRAMES = 1  # Number of times to duplicate each frame when writing video (used to control playback speed; the larger the value, the slower the playback).
+# =============================================================
+
 
 # ===================== User Config (edit here) =====================
 SERVER_URL = "ws://127.0.0.1:9000"
@@ -137,6 +145,44 @@ def render_single_bgr(env) -> np.ndarray:
             pass
 
     return bgr
+
+def create_video_writer(env, video_name: str):
+    """
+    create and return a cv2.VideoWriter object for saving episode videos.
+    """
+    os.makedirs(VIDEO_SAVE_DIR, exist_ok=True)
+    probe_frame = render_single_bgr(env)  # Render one frame first to get the dimensions.
+    h0, w0 = probe_frame.shape[:2]
+    frame_size = (w0, h0)
+    video_path = os.path.join(VIDEO_SAVE_DIR, video_name)
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    video_writer = cv2.VideoWriter(video_path, fourcc, VIDEO_FPS, frame_size)
+    # Write the detection frame as the first frame.
+    for _ in range(VIDEO_DUP_FRAMES):
+        video_writer.write(probe_frame)
+    return video_writer
+
+def write_video(video_writer, img_bgr: np.ndarray):
+    """
+    write a frame to the given cv2.VideoWriter object.
+    """
+    try:
+        if video_writer is not None:
+            for _ in range(VIDEO_DUP_FRAMES):
+                video_writer.write(img_bgr)
+    except Exception as e:
+        log_write(f"[video][ERROR] writer.write failed: {e}")
+
+def save_episode_video(writer, video_name: str, task_idx: int, slug: str, ep_num: int):
+    """save the video to disk and close video writer."""
+    if writer is None:
+        return
+    try:
+        video_path = os.path.join(VIDEO_SAVE_DIR, video_name)
+        writer.release()
+        log_write(f"[video] task={task_idx} slug={slug} ep={ep_num} saved video frames {video_path}")
+    except Exception as e:
+        log_write(f"[video][ERROR] closing writer failed: {e}")
 
 
 async def evo1_infer(ws, img_bgr: np.ndarray, state_vec: List[float], prompt: Optional[str] = None) -> np.ndarray:
@@ -311,6 +357,8 @@ async def eval_mt50_with_groups(server_url: str,
 
                 steps = 0
                 done = False
+                video_name = f"task{idx:02d}_{slug}_ep{ep+1:03d}.mp4"
+                video_writer = None if not SAVE_VIDEO else create_video_writer(sub, video_name)
 
                 try:
                     a0 = np.zeros(sub.action_space.shape, dtype=np.float32)
@@ -321,6 +369,9 @@ async def eval_mt50_with_groups(server_url: str,
 
                 while steps < episode_horizon and not done:
                     img_bgr = render_single_bgr(sub)
+                    
+                    if SAVE_VIDEO:
+                        write_video(video_writer, img_bgr)
 
                     if SAVE_IMAGE and inspect_choice and (not saved_this_episode):
                         save_sent_bgr_frame(
@@ -350,7 +401,13 @@ async def eval_mt50_with_groups(server_url: str,
                         if terminated or truncated or steps >= episode_horizon:
                             done = True
                             break
-
+                
+                # close video writer
+                if done and SAVE_VIDEO:
+                    final_frame = render_single_bgr(sub)
+                    write_video(video_writer, final_frame)
+                    save_episode_video(video_writer, video_name, idx, slug, ep + 1)
+                
           
             s = success_counts[idx]
             t = trials_counts[idx]
@@ -434,4 +491,3 @@ if __name__ == "__main__":
 #     for run_id in range(N_REPEAT):
 #         print(f"\n\n===== 🌟 Run {run_id + 1}/{N_REPEAT} =====")
 #         asyncio.run(_amain())
-
