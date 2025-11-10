@@ -38,6 +38,7 @@ Prepare the environment for Evo-1
 # Clone this repo
 git clone https://github.com/MINT-SJTU/Evo-1.git
 
+cd Evo-1/
 # Create a Conda environment
 conda create -n Evo1 python=3.10 -y
 conda activate Evo1
