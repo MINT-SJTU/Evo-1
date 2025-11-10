@@ -8,7 +8,7 @@
 [![📦 Dataset](https://img.shields.io/badge/HuggingFace-Dataset_MetaWorld-orange)](https://huggingface.co/datasets/MINT-SJTU/Evo1_MetaWorld/tree/main)  
 
 
-[![🌍 Website](https://img.shields.io/badge/Github-Website-orange)](https://mint-sjtu.github.io/Evo-1.io/)  
+[![🌍 Website](https://img.shields.io/badge/Github-Website-green)](https://mint-sjtu.github.io/Evo-1.io/)  
 
 
 
