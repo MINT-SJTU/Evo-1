@@ -240,6 +240,43 @@ If you want to resume the training process, you can use the following command (w
 accelerate launch --num_processes 1 --num_machines 1 --deepspeed_config_file ds_config.json scripts/train.py --run_name Your_own_name --action_head flowmatching --use_augmentation --lr 1e-5 --dropout 0.2 --weight_decay 1e-3 --batch_size 16 --image_size 448 --max_steps 80000 --log_interval 10 --ckpt_interval 2500 --warmup_steps 1000 --grad_clip_norm 1.0 --num_layers 8 --horizon 50 --finetune_vlm --finetune_action_head --disable_wandb --vlm_name OpenGVLab/InternVL3-1B --dataset_config_path dataset/config.yaml --per_action_dim 24 --state_dim 24 --save_dir /your/path/to/save/the/checkpoints/ --resume  --resume_path /the/checkpoint/path/you/want/to/resume/from/step_20000
 ```
 
+
+## 🦾 Inference in Your Own Embodiment
+We provide an example of inference client script [Evo1_client_xarm6](Evo_1/scripts/Evo1_client_xarm6.py) for xArm6.
+
+The key is to construct an observation dict and pass it to the server.
+```bash
+
+      obs = {
+            # You need to change the image size to 448x448 before send in obs
+            "image": [base_proc.tolist(), wrist_proc.tolist(), dummy_proc.tolist()],  
+            # This shows which image is valid.
+            "image_mask": [int(i) for i in [1, 1, 0]],
+            # This is the state of the robot.
+            "state": state.astype(float).tolist(),
+            # This is the action mask that shows which action is valid.
+            "action_mask": [[int(i) for i in action_mask[0]]],
+            # This is the instruction of the task
+            "prompt": task_instruction
+
+      }
+
+      try:
+            # Send the observation to the server
+            await ws.send(json.dumps(obs))
+            result = await ws.recv()
+            # Get the action chunk
+            action_chunk = torch.tensor(json.loads(result))
+            
+            
+      except Exception as e:
+            print(f"❌ Inference Error: {e}")
+            await asyncio.sleep(0.5)
+            continue
+
+
+```
+
 ## 📚 Citation
 ```bash
 @misc{lin2025evo1lightweightvisionlanguageactionmodel,
