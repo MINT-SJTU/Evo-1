@@ -147,7 +147,7 @@ async def handle_request(websocket, model, normalizer):
 # === 启动服务 ===
 if __name__ == "__main__":
     ckpt_dir = "Your/Path/To/Checkpoint"
-    #Example: ckpt_dir = "/home/dell/checkpoints/Evo1/Evo1_Simulation_Benchmark_Checkpoints/MetaWorld/Evo1_MetaWorld_checkpoint/"
+    #Example: ckpt_dir = "/home/dell/checkpoints/Evo1/Evo1_MetaWorld/"
 
     port = 9000
 
