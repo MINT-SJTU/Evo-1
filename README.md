@@ -182,7 +182,7 @@ We support **lerobot v2.1** format, please convert your data to this format.
 
 We use MetaWorld Dataset here as an example.
 
-### 📥 2.1 Download Dataset
+### 📥 1. Download Dataset
 
 ```bash
 mkdir Evo1_training_dataset/
@@ -196,9 +196,9 @@ cd Evo1_MetaWorld_Dataset/
 git lfs pull
 ```
 
-### ✏️ 2.2 Modify config
+### ✏️ 2 Modify config
 
-### ✏️ 2.2.1 Modify config.yaml
+### ✏️ 2.1 Modify config.yaml
 
 You need to modify the [config.yaml](Evo_1/dataset/config.yaml)
 
@@ -255,7 +255,7 @@ accelerate launch --num_processes 1 --num_machines 1 --deepspeed_config_file ds_
 ```
 
 
-## 🦾 Inference in Your Own Embodiment
+## 🦾 4. Inference in Your Own Embodiment
 We provide an example of inference client script [Evo1_client_xarm6](Evo_1/scripts/Evo1_client_xarm6.py) for xArm6.
 
 The key is to construct an observation dict and pass it to the server.
@@ -289,6 +289,95 @@ The key is to construct an observation dict and pass it to the server.
             continue
 
 
+```
+## 🤖 5.Inference in Lerobot SO100
+
+We add our policy in /so100_evo1/lerobot-main/src/lerobot/policies/evo1/
+
+### ✏️ 5.1 Environment Setup
+```bash
+#Prepare the environment for Evo1_SO100
+cd Evo_1/so100_evo1/
+
+conda create -n Evo1_SO100 python=3.10
+
+conda activate Evo1_SO100
+
+#Install FlashAttention
+wget https://ghproxy.net/https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.7cxx11abiTRUE-cp310-cp310-linux_x86_64.whl
+
+pip install flash_attn-2.8.3+cu12torch2.7cxx11abiTRUE-cp310-cp310-linux_x86_64.whl
+
+#Install LeRobot
+conda install ffmpeg -c conda-forge
+
+cd lerobot-main
+
+pip install -e.
+
+pip install -e ".[feetech]"
+
+cd Evo_1/so100_evo1/
+
+#Set your own LEROBOT_HOME which include the calibration file of so100
+export HF_LEROBOT_HOME="Adress of your own LEROBOT_HOME"
+
+pip install transformers accelerate
+
+pip install timm
+```
+### ✏️ 5.2 Checkpoint modification
+
+After you trained your model, you need to modify the checkpoint file to make it compatible with Lerobot SO100.
+
+#### 5.2.1 Change the name of the config file
+Rename the original file "config.json" to "model_config.json"
+
+#### 5.2.2 Change camera name and image shape
+
+Create a new config.json based on model_config.json.
+
+We provide an example in [SO100_example_checkpoint](https://huggingface.co/MINT-SJTU/Evo1_SO100/tree/main)
+```bash
+hf download MINT-SJTU/Evo1_SO100 --local-dir /path/to/save/checkpoint/
+```
+
+
+
+The key is to change the camera name, image shape and rewrite the config.json to satisfy the Lerobot framework.
+
+### 🚀 5.3 Run the Lerobot SO100
+
+```bash
+#Run the command
+cd Evo-1/so100_evo1
+
+lerobot-record \
+    --robot.type=so100_follower \
+    --robot.port=/dev/ttyACMXXXXXXX \
+    --robot.id=your_so100_follower_arm_id \
+    --robot.cameras="{ 
+      front: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30},
+      wrist: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}
+    }" \
+    --display_data=true \
+    --dataset.repo_id=${HF_USER}/eval_evo1 \
+    --dataset.single_task="prompt of your task" \
+    --policy.path= /path/of/your/checkpoint/
+
+#Command example
+lerobot-record \
+    --robot.type=so100_follower \
+    --robot.port=/dev/ttyACM1 \
+    --robot.id=new_follower_arm \
+    --robot.cameras="{ 
+      front_env: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30},
+      side_env: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}
+    }" \
+    --display_data=true \
+    --dataset.repo_id=yinxinyuchen/eval_evo1 \
+    --dataset.single_task="Grab the green cube and put the cube in the green box" \
+    --policy.path=/home/dell/step_20000/
 ```
 
 ## 📚 Citation
