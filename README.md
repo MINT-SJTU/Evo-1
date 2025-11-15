@@ -15,7 +15,7 @@
 
 
 ## 📰 News  
-- 🗓️ **2025-11-10** — Added Evo-1 inference in the LeRobot framework for SO100
+- 🗓️ **2025-11-15** — Added Evo-1 inference in the LeRobot framework for SO100
 - 🗓️ **2025-11-10** — Released inference script in xarm6
 - 🗓️ **2025-11-06** — Released Meta-World & LIBERO evaluation scripts  
 - 🗓️ **2025-11-06** — Uploaded model weights to HuggingFace  
