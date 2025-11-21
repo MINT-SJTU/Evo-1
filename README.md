@@ -292,7 +292,7 @@ The key is to construct an observation dict and pass it to the server.
 
 
 ```
-## 🤖 5.Inference in Lerobot SO100
+## 🤖 5.Inference in Lerobot SO100/SO101
 
 We add our policy in /so100_evo1/lerobot-main/src/lerobot/policies/evo1/
 
@@ -348,7 +348,7 @@ hf download MINT-SJTU/Evo1_SO100 --local-dir /path/to/save/checkpoint/
 
 The key is to change the camera name, image shape and rewrite the config.json to satisfy the Lerobot framework.
 
-### 🚀 5.3 Run the Lerobot SO100
+### 🚀 5.3 Run the Lerobot SO100/SO101
 
 ```bash
 #Run the command
