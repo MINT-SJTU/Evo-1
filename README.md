@@ -301,7 +301,28 @@ The key is to construct an observation dict and pass it to the server.
 
 We add our policy in /so100_evo1/lerobot-main/src/lerobot/policies/evo1/
 
-### ✏️ 5.1 Environment Setup
+### 🔧 5.1 Environment Setup for Collecting LeRobot v2.1 Data 
+
+The environment for data collection is different from the environment used for evaluation, because collecting demonstrations requires compatibility with the LeRobot v2.1 dataset format.
+```bash
+
+# Create and activate the conda environment for data collection
+conda create -y -n lerobot python=3.10
+conda activate lerobot
+
+# Clone the LeRobot repository
+git clone https://github.com/huggingface/lerobot.git
+cd lerobot
+
+# Checkout the version compatible with v2.1 data format
+git checkout v0.3.2
+
+pip install -e .
+
+pip install -e ".[feetech]"
+```
+
+### 🔧 5.2 Environment Setup for Evaluation
 ```bash
 #Prepare the environment for Evo1_SO100
 cd Evo_1/so100_evo1/
@@ -333,14 +354,14 @@ pip install transformers accelerate
 
 pip install timm
 ```
-### ✏️ 5.2 Checkpoint modification
+### ✏️ 5.3 Checkpoint modification
 
 After you trained your model, you need to modify the checkpoint file to make it compatible with Lerobot SO100.
 
-#### 5.2.1 Change the name of the config file
+#### 5.3.1 Change the name of the config file
 Rename the original file "config.json" to "model_config.json"
 
-#### 5.2.2 Change camera name and image shape
+#### 5.3.2 Change camera name and image shape
 
 Create a new config.json based on model_config.json.
 
@@ -353,7 +374,7 @@ hf download MINT-SJTU/Evo1_SO100 --local-dir /path/to/save/checkpoint/
 
 The key is to change the camera name, image shape and rewrite the config.json to satisfy the Lerobot framework.
 
-### 🚀 5.3 Run the Lerobot SO100/SO101
+### 🚀 5.4 Run the Lerobot SO100/SO101
 
 ```bash
 #Run the command
@@ -386,6 +407,10 @@ lerobot-record \
     --dataset.single_task="Grab the green cube and put the cube in the green box" \
     --policy.path=/home/dell/step_20000/
 ```
+For reference, we also provide a recording that demonstrates how to evaluate Evo1 on SO100/SO101.
+If you already have a trained checkpoint, please refer to the following links: \
+[YouTube](https://www.youtube.com/watch?v=YzwkllipxXE) \
+[bilibili](https://www.bilibili.com/video/BV1cg2QBhErT/?vd_source=17e6e0b7820cb5c4caae006748e7551e)
 
 ## 📚 Citation
 ```bash
