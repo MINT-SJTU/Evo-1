@@ -15,6 +15,7 @@
 
 
 ## 📰 News  
+- 🗓️ **2025-12-15** — Added Evo-1 inference code in Aloha dual arm (Implemented by community user @meijie-jesse)
 - 🗓️ **2025-11-15** — Added Evo-1 inference in the LeRobot framework for SO100/SO101
 - 🗓️ **2025-11-10** — Released inference script in xarm6
 - 🗓️ **2025-11-06** — Released Meta-World & LIBERO evaluation scripts  
