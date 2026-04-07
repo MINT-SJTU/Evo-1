@@ -1,0 +1,121 @@
+#!/usr/bin/env python
+
+# Copyright 2026 The HuggingFace Inc. team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from dataclasses import dataclass
+
+from ..config import TeleoperatorConfig
+
+DEFAULT_PIPER_GRAVITY_COMP_TX_RATIO = (0.2, 0.2, 0.2, 0.2, 0.2, 0.2)
+DEFAULT_PIPERX_GRAVITY_COMP_TX_RATIO = (1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
+
+
+@dataclass
+class PiperLeaderConfigBase:
+    """Configuration for a Piper leader arm used as teleoperator."""
+
+    # CAN interface name (e.g. "can1")
+    port: str
+
+    # Piper SDK connection options
+    judge_flag: bool = False
+    can_auto_init: bool = True
+    log_level: str = "WARNING"
+    startup_sleep_s: float = 0.1
+
+    # Manual backdrivable mode for human teleop
+    manual_control: bool = True
+
+    # Read control messages from leader first, fallback to feedback state if missing
+    prefer_ctrl_messages: bool = True
+    fallback_to_feedback: bool = True
+
+    # Gripper handling
+    sync_gripper: bool = True
+    gripper_effort_default: int = 1000
+    gripper_status_code: int = 0x01
+
+    # Command mode for send_feedback
+    command_speed_ratio: int = 100
+    command_high_follow: bool = True
+    mode_refresh_interval_s: float = 1.0
+    enable_timeout_s: float = 3.0
+
+    # Gravity compensation settings (used when manual_control=true)
+    gravity_comp_control_hz: float = 200.0
+    gravity_comp_tx_ratio: tuple[float, float, float, float, float, float] = (
+        DEFAULT_PIPER_GRAVITY_COMP_TX_RATIO
+    )
+    gravity_comp_torque_limit: float = 8.0
+    gravity_comp_mit_kp: float = 0.0
+    gravity_comp_mit_kd: float = 0.0
+    gravity_comp_base_rpy_deg: tuple[float, float, float] = (0.0, 0.0, 0.0)
+
+    # Calibration precision:
+    # homing_offset/range_min/range_max are stored as "degree * calibration_scale".
+    calibration_scale: int = 1000
+    # Whether calibration is required on connect when no calibration file exists
+    require_calibration: bool = True
+
+    # Safety behavior on disconnect
+    disable_on_disconnect: bool = False
+
+
+def _validate_piper_leader_config(config: PiperLeaderConfigBase) -> None:
+    if not (0 <= config.command_speed_ratio <= 100):
+        raise ValueError("`command_speed_ratio` must be between 0 and 100.")
+    if config.mode_refresh_interval_s < 0:
+        raise ValueError("`mode_refresh_interval_s` must be >= 0.")
+    if config.enable_timeout_s < 0:
+        raise ValueError("`enable_timeout_s` must be >= 0.")
+    if config.gravity_comp_control_hz <= 0:
+        raise ValueError("`gravity_comp_control_hz` must be > 0.")
+    if len(config.gravity_comp_tx_ratio) != 6:
+        raise ValueError("`gravity_comp_tx_ratio` must contain exactly 6 values.")
+    if config.gravity_comp_torque_limit <= 0:
+        raise ValueError("`gravity_comp_torque_limit` must be > 0.")
+    if len(config.gravity_comp_base_rpy_deg) != 3:
+        raise ValueError("`gravity_comp_base_rpy_deg` must contain exactly 3 values.")
+    if config.calibration_scale <= 0:
+        raise ValueError("`calibration_scale` must be > 0.")
+    if not isinstance(config.require_calibration, bool):
+        raise ValueError("require_calibration must be true or false.")
+    if config.startup_sleep_s < 0:
+        raise ValueError("`startup_sleep_s` must be >= 0.")
+    if not (0 <= config.gripper_effort_default <= 5000):
+        raise ValueError("`gripper_effort_default` must be between 0 and 5000.")
+    if config.gripper_status_code not in {0x00, 0x01, 0x02, 0x03}:
+        raise ValueError("`gripper_status_code` must be one of 0x00, 0x01, 0x02, 0x03.")
+
+
+@TeleoperatorConfig.register_subclass("piper_leader")
+@dataclass
+class PiperLeaderConfig(TeleoperatorConfig, PiperLeaderConfigBase):
+    def __post_init__(self):
+        _validate_piper_leader_config(self)
+
+
+@dataclass
+class PiperXLeaderConfigBase(PiperLeaderConfigBase):
+    gravity_comp_tx_ratio: tuple[float, float, float, float, float, float] = (
+        DEFAULT_PIPERX_GRAVITY_COMP_TX_RATIO
+    )
+
+
+@TeleoperatorConfig.register_subclass("piperx_leader")
+@dataclass
+class PiperXLeaderConfig(TeleoperatorConfig, PiperXLeaderConfigBase):
+    def __post_init__(self):
+        _validate_piper_leader_config(self)
