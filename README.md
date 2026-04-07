@@ -66,6 +66,112 @@ For offline local training, point `dataset.root` to the dataset repo directory i
 
 Do not point `dataset.root` only to the global cache base directory on restricted machines.
 
+## SO101 Deployment and Data Collection
+
+For SO101 users, this branch is intended to replace the older Evo1 main-branch deployment path. Use this branch for:
+
+- SO101 motor setup and calibration
+- SO101 teleoperation sanity checks
+- SO101 policy rollout and evaluation recording
+- SO101 dataset collection in the LeRobot pipeline
+
+Set a persistent LeRobot home first. This directory stores robot calibration files and other local runtime artifacts:
+
+```bash
+export HF_LEROBOT_HOME=/path/to/lerobot_home
+mkdir -p "${HF_LEROBOT_HOME}"
+```
+
+### 1. Setup Motors
+
+Run setup once for the follower arm and once for the leader arm:
+
+```bash
+cd /path/to/Evo-1
+PYTHONPATH=evo1_lerobot python -m lerobot.scripts.lerobot_setup_motors \
+  --robot.type=so101_follower \
+  --robot.port=/dev/ttyACM1 \
+  --robot.id=<so101_follower_id>
+
+PYTHONPATH=evo1_lerobot python -m lerobot.scripts.lerobot_setup_motors \
+  --teleop.type=so101_leader \
+  --teleop.port=/dev/ttyACM0 \
+  --teleop.id=<so101_leader_id>
+```
+
+### 2. Teleoperation Sanity Check
+
+Use teleoperation before policy rollout to confirm ports, calibration, and camera wiring:
+
+```bash
+cd /path/to/Evo-1
+PYTHONPATH=evo1_lerobot python -m lerobot.scripts.lerobot_teleoperate \
+  --robot.type=so101_follower \
+  --robot.port=/dev/ttyACM1 \
+  --robot.id=<so101_follower_id> \
+  --robot.cameras='{
+    front_env: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30},
+    wrist: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}
+  }' \
+  --teleop.type=so101_leader \
+  --teleop.port=/dev/ttyACM0 \
+  --teleop.id=<so101_leader_id> \
+  --display_data=true
+```
+
+### 3. Policy Rollout or Evaluation Recording on SO101
+
+Use `lerobot_record` with an Evo1 checkpoint in LeRobot policy format. `policy.path` must point to the `pretrained_model` directory:
+
+```bash
+cd /path/to/Evo-1
+PYTHONPATH=evo1_lerobot python -m lerobot.scripts.lerobot_record \
+  --robot.type=so101_follower \
+  --robot.port=/dev/ttyACM1 \
+  --robot.id=<so101_follower_id> \
+  --robot.cameras='{
+    front_env: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30},
+    wrist: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}
+  }' \
+  --dataset.repo_id=<hf_user>/eval_evo1 \
+  --dataset.root=/path/to/lerobot_eval_dataset \
+  --dataset.single_task="Describe the SO101 task here." \
+  --dataset.num_episodes=10 \
+  --dataset.push_to_hub=false \
+  --display_data=true \
+  --policy.path=<stage2_checkpoint_dir>/pretrained_model
+```
+
+If you want teleoperation available between policy episodes or for assisted collection, add the same `--teleop.*` arguments used in the teleoperation command above.
+
+### 4. SO101 Dataset Collection
+
+For pure teleoperated data collection, use the same `lerobot_record` entrypoint but omit `--policy.path` and include `--teleop.*`:
+
+```bash
+cd /path/to/Evo-1
+PYTHONPATH=evo1_lerobot python -m lerobot.scripts.lerobot_record \
+  --robot.type=so101_follower \
+  --robot.port=/dev/ttyACM1 \
+  --robot.id=<so101_follower_id> \
+  --robot.cameras='{
+    front_env: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30},
+    wrist: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}
+  }' \
+  --teleop.type=so101_leader \
+  --teleop.port=/dev/ttyACM0 \
+  --teleop.id=<so101_leader_id> \
+  --dataset.repo_id=<hf_user>/<dataset_name> \
+  --dataset.root=/path/to/lerobot_dataset_root \
+  --dataset.single_task="Describe the SO101 task here." \
+  --dataset.num_episodes=50 \
+  --dataset.episode_time_s=60 \
+  --dataset.reset_time_s=60 \
+  --dataset.revision=v3.0 \
+  --dataset.push_to_hub=false \
+  --display_data=true
+```
+
 ## Checkpoint Format
 
 Weights are saved in the LeRobot policy format:
