@@ -15,7 +15,9 @@
 
 
 ## 📰 News  
-- 🗓️ **2026-02-20** — Evo-1 is accepted by CVPR 2026 🎉
+- 🗓️ **2026-04-08** — Evo-1 is now fully integrated into the LeRobot framework!
+- 🗓️ **2026-04-08** — We released Evo-1 Docker support for Jetson (https://huggingface.co/datasets/MINT-SJTU/Evo-1_JetsonOrin).
+- 🗓️ **2026-02-20** — Evo-1 is accepted by CVPR 2026 🎉🎉
 - 🗓️ **2025-12-15** — Added Evo-1 inference code in Aloha dual arm (Implemented by community user @meijie-jesse)
 - 🗓️ **2025-11-15** — Added Evo-1 inference in the LeRobot framework for SO100/SO101
 - 🗓️ **2025-11-10** — Released inference script in xarm6
@@ -29,8 +31,9 @@
 ## ✅ To-Do List  
 
 - ✅ Release inference script in xarm6 
-- ✅ Add Evo-1 to the LeRobot framework for SO100/SO101   
-- ⬜ Release instructions for deploying Evo-1 on Jetson Orin
+- ✅ Add Evo-1 to the LeRobot framework 
+    (check evo1-lerobot branch)
+- ✅ Release instructions for deploying Evo-1 on Jetson Orin (https://huggingface.co/datasets/MINT-SJTU/Evo-1_JetsonOrin)
 - ⬜ Release results of all 50 RoboTwin tasks
 - ⬜ Release RoboTwin evaluation script  
   
@@ -301,7 +304,9 @@ The key is to construct an observation dict and pass it to the server.
 ```
 ## 🤖 5.Inference in Lerobot SO100/SO101
 
-We add our policy in /so100_evo1/lerobot-main/src/lerobot/policies/evo1/
+  For detailed instructions, please check out the `evo1-lerobot` branch.
+
+<!-- We add our policy in /so100_evo1/lerobot-main/src/lerobot/policies/evo1/
 
 ### 🔧 5.1 Environment Setup for Collecting LeRobot v2.1 Data 
 
@@ -412,7 +417,7 @@ lerobot-record \
 For reference, we also provide a recording that demonstrates how to evaluate Evo1 on SO100/SO101.
 If you already have a trained checkpoint, please refer to the following links: \
 [YouTube](https://www.youtube.com/watch?v=YzwkllipxXE) \
-[bilibili](https://www.bilibili.com/video/BV1cg2QBhErT/?vd_source=17e6e0b7820cb5c4caae006748e7551e)
+[bilibili](https://www.bilibili.com/video/BV1cg2QBhErT/?vd_source=17e6e0b7820cb5c4caae006748e7551e) -->
 
 ## 📚 Citation
 ```bash
