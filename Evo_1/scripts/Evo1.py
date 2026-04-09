@@ -1,34 +1,36 @@
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from types import SimpleNamespace
 from typing import List, Union, Tuple
 from PIL import Image
 import torch
 import torch.nn as nn
 from model.internvl3.internvl3_embedder import InternVL3Embedder
 from model.action_head.flow_matching import FlowmatchingActionHead
+from config import EvoConfig
 import logging
+
 class EVO1(nn.Module):
-    def __init__(self, config: dict):
+    def __init__(self, config: EvoConfig):
         super().__init__() 
         self.config = config
-        self._device = config.get("device", "cuda")
-        self.return_cls_only = config.get("return_cls_only", False)
-        vlm_name = config.get("vlm_name", "OpenGVLab/InternVL3-1B")
-        self.embedder = InternVL3Embedder(model_name=vlm_name, device=self._device)
+        self._device = config.device
+        self.return_cls_only = config.return_cls_only
+        vlm_name = config.vlm_name
+        self.embedder = InternVL3Embedder(
+            model_name=vlm_name,
+            device=self._device,
+            enable_gradient_checkpointing=config.enable_gradient_checkpointing,
+            gradient_checkpointing_use_reentrant=config.gradient_checkpointing_use_reentrant,
+        )
 
-        action_head_type = config.get("action_head", "flowmatching").lower()
+        action_head_type = config.action_head.lower()
         
         if action_head_type == "flowmatching":
            
-            horizon = config.get("action_horizon", config.get("horizon", 16))
-            per_action_dim = config.get("per_action_dim", 7)
-            action_dim = horizon * per_action_dim
-            
-            config["horizon"] = horizon
-            config["per_action_dim"] = per_action_dim
-            config["action_dim"] = action_dim
+            horizon = config.action_horizon if config.action_horizon is not None else config.horizon
+            per_action_dim = config.per_action_dim
+            action_dim = config.action_dim
             
             if action_dim != horizon * per_action_dim:
                 raise ValueError(f"action_dim ({action_dim}) ≠ horizon ({horizon}) × per_action_dim ({per_action_dim})")
@@ -36,28 +38,15 @@ class EVO1(nn.Module):
             self.horizon = horizon
             self.per_action_dim = per_action_dim
             
-            self.action_head = FlowmatchingActionHead(config=SimpleNamespace(
-                embed_dim=config.get("embed_dim", 896),    
-                hidden_dim=config.get("hidden_dim", 1024),
-                action_dim=action_dim,
-                horizon=horizon,
-                per_action_dim=per_action_dim,
-                state_dim=config.get("state_dim", 7),
-                state_hidden_dim=config.get("state_hidden_dim", 1024),
-                num_heads=config.get("num_heads", 8),
-                num_layers=config.get("num_layers", 8),
-                dropout=config.get("dropout", 0.0),
-                num_inference_timesteps=config.get("num_inference_timesteps", 50),
-                num_categories=config.get("num_categories", 1)
-            )).to(self._device)
+            self.action_head = FlowmatchingActionHead(config=config).to(self._device)
         else:
             raise NotImplementedError(f"Unknown action_head: {action_head_type}")
 
     def get_vl_embeddings(
         self,
-        images: List[Image.Image],
+        images: List[List[Union[Image.Image, torch.Tensor]]],
         image_mask: torch.Tensor,  
-        prompt: str = "",
+        prompt: List[str] = None,
         return_cls_only: Union[bool, None] = None
     ) -> torch.Tensor:
 
@@ -65,11 +54,15 @@ class EVO1(nn.Module):
             return_cls_only = self.return_cls_only
 
         if images is None or len(images) == 0:
-            raise ValueError("Must provide at least one image (PIL.Image). Got `images=None` or empty list.")
+            raise ValueError("Must provide at least one batch of images. Got `images=None` or empty list.")
+        
+        if prompt is None:
+            prompt = [""] * len(images)
+            
         return self.embedder.get_fused_image_text_embedding_from_tensor_images(
-            image_tensors=images,
-            image_mask=image_mask,
-            text_prompt=prompt,
+            image_tensors_batch=images,
+            image_masks=image_mask,
+            text_prompts=prompt,
             return_cls_only=return_cls_only,
         )
 
@@ -114,17 +107,26 @@ class EVO1(nn.Module):
         action_mask: Union[torch.Tensor, None] = None
     ) -> torch.Tensor:
 
+        # Wrap inputs into a batch of size 1 for the embedder
+        if image_mask.dim() == 1:
+            image_mask = image_mask.unsqueeze(0)
+            
         fused_tokens = self.get_vl_embeddings(
-                        images=images,
+                        images=[images],
                         image_mask=image_mask,
-                        prompt=prompt,
+                        prompt=[prompt],
                         return_cls_only=return_cls_only
                         
                     )
 
         state_tensor = self.prepare_state(state_input)  
         
-        return self.predict_action(fused_tokens, state_tensor, action_mask=action_mask)
+        action = self.predict_action(fused_tokens, state_tensor, action_mask=action_mask)
+
+        if isinstance(action, torch.Tensor) and action.dtype == torch.bfloat16:
+            action = action.to(torch.float32)
+        
+        return action
     
 
     def forward(self, fused_tokens, state=None, actions_gt=None, action_mask=None, embodiment_ids=None):
@@ -137,14 +139,33 @@ class EVO1(nn.Module):
         for p in module.parameters():
             p.requires_grad = False
 
+    def _set_module_trainable(self, module: nn.Module, trainable: bool, name: str):
+        action = "Finetuning" if trainable else "Freezing"
+        print(f"{action} {name} parameters...")
+        for p in module.parameters():
+            p.requires_grad = trainable
+
     def set_finetune_flags(self):
         config = self.config  
-        if not config.get("finetune_vlm", False):
-            self._freeze_module(self.embedder, "VLM (InternVL3)")
-        else:
-            print("Finetuning VLM (InternVL3)...")
+        legacy_finetune_vlm = config.finetune_vlm
+        finetune_language_model = config.finetune_language_model
+        finetune_vision_model = config.finetune_vision_model
 
-        if not config.get("finetune_action_head", False):
+        has_explicit_branch_flags = finetune_language_model or finetune_vision_model
+
+        if has_explicit_branch_flags:
+            self._set_module_trainable(self.embedder, False, "VLM (InternVL3)")
+            self._set_module_trainable(self.embedder.model.language_model, finetune_language_model, "VLM language_model")
+            self._set_module_trainable(self.embedder.model.vision_model, finetune_vision_model, "VLM vision_model")
+            if hasattr(self.embedder.model, "mlp1"):
+                self._set_module_trainable(self.embedder.model.mlp1, finetune_vision_model, "VLM visual projector (mlp1)")
+        else:
+            if not legacy_finetune_vlm:
+                self._freeze_module(self.embedder, "VLM (InternVL3)")
+            else:
+                print("Finetuning VLM (InternVL3)...")
+
+        if not config.finetune_action_head:
             self._freeze_module(self.action_head, "Action Head")
         else:
             print("Finetuning Action Head...")

@@ -2,70 +2,70 @@
 max_action_dim: 24
 max_state_dim: 24
 max_views: 3
+normalization_type: bounds # options: bounds, normal, bounds_q99
+datasets_manifest: libero_4_standard_lerobot.pkl # Example: dataset_manifest_eef_libero_10_lerobot21.pkl
+
+decoder_cache_size: 16             # video decoder cache size
+cache_shard_size_bytes: 268435456  # shard size for caching decoded videos, default 256MB
 
 data_groups:
-  ##############################################################################
-  # Your embodiment_name:
-  #   your_dataset_name:
-  #     path: /path/to/your/dataset
-  #     view_map:
-  #       image_1: observation.images.image_1
-  #       image_2: observation.images.image_2
-  #       image_3: observation.images.image_3
-################################################################################
-
-
-
-
-  # This is an example of how to configure the dataset path and view mapping for MetaWorld
-  metaworld_sawyer:
-    Evo1_MetaWorld:
-      path: /home/dell/code/lintao/Evo_1/Evo1_training_dataset/Evo1_MetaWorld_Dataset
+  franka_ee_pose_delta:
+    libero_10_no_noops_lerobot:
+      path: /the/path/to/your/libero_10_dataset # example: /home/dell/code/Evo1-LA2VLA/Evo1_training_dataset/libero_seg_clean/10
       view_map:
         image_1: observation.images.image
+        image_2: observation.images.wrist_image
+      use_delta_action: False
+      process_suite: franka_ee_pose # must set
+      suite_config:                 # optional, below is an example of suite_config
+        state_key: observation.state
+        action_key: action
+        gripper_indices: [6]
+        ee_pose_dims: [0, 6]
 
+    libero_goal_no_noops_lerobot:
+      path: /the/path/to/your/libero_goal_dataset
+      view_map:
+        image_1: observation.images.image
+        image_2: observation.images.wrist_image
+      use_delta_action: False
+      process_suite: franka_ee_pose
 
+    libero_object_no_noops_lerobot:
+      path: /the/path/to/your/libero_object_dataset
+      view_map:
+        image_1: observation.images.image
+        image_2: observation.images.wrist_image
+      use_delta_action: False
+      process_suite: franka_ee_pose
 
-  # This is an example of how to configure multi-task training for LIBERO.
-  # The libero dataset is from https://huggingface.co/collections/IPEC-COMMUNITY/libero-benchmark-dataset
+    libero_spatial_no_noops_lerobot:
+      path: /the/path/to/your/libero_spatial_lerobot
+      view_map:
+        image_1: observation.images.image
+        image_2: observation.images.wrist_image
+      use_delta_action: False
+      process_suite: franka_ee_pose
 
-  # libero_franka:
-  #   libero_spatial_no_noops_1.0.0_lerobot:
-  #     path: /share/taolin/datasets/libero/libero_spatial_no_noops_1.0.0_lerobot
+  # franka_ee_abs_pose:
+  #   calvin_abc_d_lerobotv21:
+  #     path: /share/taolin/datasets/calvin/calvinABC_D/calvin2lerobotV21_ABC_D_scnet
   #     view_map:
-  #       image_1: observation.images.image
-  #       image_2: observation.images.wrist_image
+  #       image_1: observation.images.rgb_static
+  #       image_2: observation.images.rgb_gripper
+  #     use_delta_action: True
+  #     process_suite: franka_ee_pose
 
-  #   libero_object_no_noops_1.0.0_lerobot:
-  #     path: /share/taolin/datasets/libero/libero_object_no_noops_1.0.0_lerobot
+  #   droid_101_eef_lerobotv21:
+  #     path: /share/taolin/datasets/pretraining_data/droid_1.0.1
   #     view_map:
-  #       image_1: observation.images.image
-  #       image_2: observation.images.wrist_image
-
-  #   libero_goal_no_noops_1.0.0_lerobot:
-  #     path: /share/taolin/datasets/libero/libero_goal_no_noops_1.0.0_lerobot
-  #     view_map:
-  #       image_1: observation.images.image
-  #       image_2: observation.images.wrist_image
-
-  #   libero_10_no_noops_1.0.0_lerobot:
-  #     path: /share/taolin/datasets/libero/libero_10_no_noops_1.0.0_lerobot
-  #     view_map:
-  #       image_1: observation.images.image
-  #       image_2: observation.images.wrist_image
-
-
-
-
-
-
-
-  # This is an example of how to configure the dataset path and view mapping for RoboTwin
-
-  # robotwin_robot:
-  # click_alarmclock_v2.1:
-  #   path: /share/taolin/datasets/robotwin/click_alarmclock_v2.1
-  #   view_map:
-  #     image_1: observation.images.image_1
-  #     image_2: observation.images.image_2
-  #     image_3: observation.images.image_3
+  #       image_1: observation.images.exterior_1_left
+  #       image_2: observation.images.wrist_left
+  #       image_3: observation.images.exterior_2_left
+  #     use_delta_action: True
+  #     process_suite: droid_eef
+  #     suite_config:
+  #       state_key: observation.state.cartesian_position
+  #       action_key: action.cartesian_position
+  #       action_gripper_key: action.gripper_position
+  #       state_gripper_key: observation.state.gripper_position
