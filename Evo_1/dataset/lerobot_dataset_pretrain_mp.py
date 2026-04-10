@@ -199,7 +199,17 @@ class LeRobotDataset(Dataset):
         self._manifest: Dict[str, Any] = {}
 
         self._load_metadata()
-        self._ensure_cache_exported()
+        
+        try:
+            from accelerate import PartialState
+            state = PartialState()
+            if state.is_main_process:
+                self._ensure_cache_exported()
+            state.wait_for_everyone() 
+        except ImportError:
+            logging.warning("Accelerate not found; skipping distributed cache export synchronization.")
+            self._ensure_cache_exported()
+            
         self._load_runtime_index()
 
         self.basic_transform = T.Compose(

@@ -324,6 +324,11 @@ class FlowmatchingActionHead(nn.Module):
         action_intermediate_seq = (1 - t_broadcast) * noise_seq + t_broadcast * actions_gt_seq  
 
         action_tokens = self._project_actions(action_intermediate_seq, embodiment_id)
+        
+        target_dtype = self.dtype
+        action_tokens = action_tokens.to(dtype=target_dtype)
+        context_tokens = context_tokens.to(dtype=target_dtype)
+        time_emb = time_emb.to(dtype=target_dtype)
 
         x = action_tokens  
         for block in self.transformer_blocks:
@@ -378,6 +383,9 @@ class FlowmatchingActionHead(nn.Module):
         )
         action_seq = action_seq * action_mask
         
+        target_dtype = self.dtype
+        context_tokens = context_tokens.to(dtype=target_dtype)
+        
         N = int(getattr(self.config, "num_inference_timesteps", 32))
         if N <= 0:
             raise ValueError(f"num_inference_timesteps must be positive, got {N}")
@@ -392,6 +400,8 @@ class FlowmatchingActionHead(nn.Module):
 
             action_seq = action_seq * action_mask
             action_tokens = self._project_actions(action_seq, embodiment_id)
+            action_tokens = action_tokens.to(dtype=target_dtype)
+            time_emb = time_emb.to(dtype=target_dtype)
 
             x = action_tokens
             for block in self.transformer_blocks:
