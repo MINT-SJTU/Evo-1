@@ -15,6 +15,8 @@
 
 
 ## 📰 News  
+- 🗓️ **2026-04-10** — Updated the `evo1-flash` branch: faster training with reduced GPU memory usage.
+- 🗓️ **2026-04-10** — Updated the `evo1-lerobot` branch: Evo-1 is now fully integrated into the LeRobot framework.
 - 🗓️ **2026-04-08** — Evo-1 is now fully integrated into the LeRobot framework!
 - 🗓️ **2026-04-08** — We released Evo-1 Docker support for Jetson (https://huggingface.co/datasets/MINT-SJTU/Evo-1_JetsonOrin).
 - 🗓️ **2026-02-20** — Evo-1 is accepted by CVPR 2026 🎉🎉
@@ -31,8 +33,8 @@
 ## ✅ To-Do List  
 
 - ✅ Release inference script in xarm6 
-- ✅ Add Evo-1 to the LeRobot framework 
-    (check evo1-lerobot branch)
+- ✅ Update `evo1-flash` branch (faster training + reduced GPU memory usage)
+- ✅ Update `evo1-lerobot` branch (fully integrated Evo-1 into the LeRobot framework)
 - ✅ Release instructions for deploying Evo-1 on Jetson Orin (https://huggingface.co/datasets/MINT-SJTU/Evo-1_JetsonOrin)
 - ⬜ Release results of all 50 RoboTwin tasks
 - ⬜ Release RoboTwin evaluation script  
