@@ -130,15 +130,24 @@ class _VideoDecoderLRU:
         if self.backend == "av":
             container = self._get_pyav_container(path)
             stream = container.streams.video[0]
-            container.seek(0, stream=stream)
-            last_frame = None
-            for frame in container.decode(video=0):
-                last_frame = frame
-                if frame.time is not None and frame.time >= timestamp:
-                    return Image.fromarray(frame.to_ndarray(format="rgb24"))
-            if last_frame is None:
-                raise RuntimeError(f"No frame decoded from {path}")
-            return Image.fromarray(last_frame.to_ndarray(format="rgb24"))
+            try:
+                container.seek(0, stream=stream)
+                last_frame = None
+                for frame in container.decode(video=0):
+                    last_frame = frame
+                    if frame.time is not None and frame.time >= timestamp:
+                        return Image.fromarray(frame.to_ndarray(format="rgb24"))
+                if last_frame is None:
+                    raise RuntimeError(f"No frame decoded from {path}")
+                return Image.fromarray(last_frame.to_ndarray(format="rgb24"))
+            except Exception as e:
+                if path in self._cache:
+                    try:
+                        self._cache[path].close()
+                    except Exception:
+                        pass
+                    del self._cache[path]
+                raise RuntimeError(f"AV decode error for {path}: {e}") from e
 
         raise NotImplementedError(f"Unsupported video backend: {self.backend}")
 
@@ -646,9 +655,10 @@ class LeRobotDataset(Dataset):
                 view_order=view_order,
             )
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to decode video for sample idx={idx}, arm={arm_key}, dataset={dataset_key}: {e}"
-            ) from e
+            logging.warning(
+                f"Failed to decode video for sample idx={idx}, arm={arm_key}, dataset={dataset_key}: {e}. Skipping to another sample."
+            )
+            return self[random.randint(0, len(self._index) - 1)]
 
         # use only successfully decoded views, and build a contiguous mask.
         valid_frames = [frame for frame in frames if frame is not None]
