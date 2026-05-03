@@ -66,9 +66,13 @@ class Evo1Config(PreTrainedConfig):
     num_inference_timesteps: int = 32
     num_categories: int = 1
     return_cls_only: bool = False
+    enable_gradient_checkpointing: bool = True
+    gradient_checkpointing_use_reentrant: bool = False
 
-    finetune_vlm: bool = False
-    finetune_action_head: bool = True
+    finetune_vlm: bool | None = None
+    finetune_language_model: bool | None = None
+    finetune_vision_model: bool | None = None
+    finetune_action_head: bool | None = None
 
     task_field: str = "task"
     embodiment_id_field: str | None = None
@@ -91,11 +95,47 @@ class Evo1Config(PreTrainedConfig):
             )
 
         if self.training_stage == "stage1":
-            self.finetune_vlm = False
-            self.finetune_action_head = True
+            if self.finetune_vlm is None:
+                self.finetune_vlm = False
+            if self.finetune_language_model is None:
+                self.finetune_language_model = False
+            if self.finetune_vision_model is None:
+                self.finetune_vision_model = False
+            if self.finetune_action_head is None:
+                self.finetune_action_head = True
         elif self.training_stage == "stage2":
-            self.finetune_vlm = True
-            self.finetune_action_head = True
+            has_explicit_branch_flags = any(
+                flag is not None for flag in (self.finetune_language_model, self.finetune_vision_model)
+            )
+            if not has_explicit_branch_flags:
+                if self.finetune_vlm is None:
+                    self.finetune_vlm = True
+                if self.finetune_language_model is None:
+                    self.finetune_language_model = True
+                if self.finetune_vision_model is None:
+                    self.finetune_vision_model = True
+            elif self.finetune_vlm is None:
+                self.finetune_vlm = bool(self.finetune_language_model or self.finetune_vision_model)
+            if self.finetune_action_head is None:
+                self.finetune_action_head = True
+
+        if self.finetune_vlm is None:
+            self.finetune_vlm = False
+        if self.finetune_language_model is None:
+            self.finetune_language_model = False
+        if self.finetune_vision_model is None:
+            self.finetune_vision_model = False
+        if self.finetune_action_head is None:
+            self.finetune_action_head = False
+
+        branch_vlm = self.finetune_language_model or self.finetune_vision_model
+        if self.finetune_vlm != branch_vlm:
+            raise ValueError(
+                "Inconsistent EVO1 finetune config: "
+                f"finetune_vlm={self.finetune_vlm} but "
+                f"(finetune_language_model or finetune_vision_model)={branch_vlm}. "
+                "When branch-level flags are used, finetune_vlm must match their effective union."
+            )
 
         if self.n_action_steps > self.chunk_size:
             raise ValueError(

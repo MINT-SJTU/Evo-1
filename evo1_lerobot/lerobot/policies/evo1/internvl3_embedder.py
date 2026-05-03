@@ -1,10 +1,13 @@
+import functools
 import logging
+from collections.abc import Sequence
 
 import torch
 import torch.nn as nn
-import torchvision.transforms as transforms
+import torchvision.transforms.functional as TF
 from PIL import Image
-from torchvision.transforms.functional import InterpolationMode, to_pil_image
+from torchvision.transforms import InterpolationMode
+from torchvision.transforms.functional import to_pil_image
 from transformers import AutoModel, AutoTokenizer
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -13,24 +16,32 @@ IMG_CONTEXT_TOKEN = "<IMG_CONTEXT>"  # nosec B105
 IMG_START_TOKEN = "<img>"  # nosec B105
 IMG_END_TOKEN = "</img>"  # nosec B105
 
-
-# === Image Transformations ===
-def build_transform(input_size):
-    return transforms.Compose(
-        [
-            transforms.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
-            transforms.Resize((input_size, input_size), interpolation=InterpolationMode.BICUBIC),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-        ]
-    )
+logger = logging.getLogger(__name__)
 
 
-# === Aspect Ratio Handling ===
-def find_closest_aspect_ratio(aspect_ratio, target_ratios, width, height, image_size):
+def flash_attn_is_available() -> bool:
+    try:
+        import flash_attn  # noqa: F401
+    except ModuleNotFoundError:
+        return False
+    return True
+
+
+@functools.lru_cache(maxsize=10000)
+def get_target_aspect_ratio(orig_width: int, orig_height: int, image_size: int, min_num: int, max_num: int):
+    aspect_ratio = orig_width / orig_height
+    target_ratios = {
+        (i, j)
+        for n in range(min_num, max_num + 1)
+        for i in range(1, n + 1)
+        for j in range(1, n + 1)
+        if i * j <= max_num and i * j >= min_num
+    }
+    target_ratios = sorted(target_ratios, key=lambda x: x[0] * x[1])
+
     best_ratio_diff = float("inf")
     best_ratio = (1, 1)
-    area = width * height
+    area = orig_width * orig_height
     for ratio in target_ratios:
         target_ar = ratio[0] / ratio[1]
         diff = abs(aspect_ratio - target_ar)
@@ -44,21 +55,10 @@ def find_closest_aspect_ratio(aspect_ratio, target_ratios, width, height, image_
 
 def dynamic_preprocess(image, min_num=1, max_num=1, image_size=448, use_thumbnail=False):
     orig_width, orig_height = image.size
-    aspect_ratio = orig_width / orig_height
-    target_ratios = {
-        (i, j)
-        for n in range(min_num, max_num + 1)
-        for i in range(1, n + 1)
-        for j in range(1, n + 1)
-        if i * j <= max_num and i * j >= min_num
-    }
-    target_ratios = sorted(target_ratios, key=lambda x: x[0] * x[1])
-    target_aspect_ratio = find_closest_aspect_ratio(
-        aspect_ratio, target_ratios, orig_width, orig_height, image_size
-    )
-    target_width = image_size * target_aspect_ratio[0]
-    target_height = image_size * target_aspect_ratio[1]
-    blocks = target_aspect_ratio[0] * target_aspect_ratio[1]
+    ratio_w, ratio_h = get_target_aspect_ratio(orig_width, orig_height, image_size, min_num, max_num)
+    target_width = image_size * ratio_w
+    target_height = image_size * ratio_h
+    blocks = ratio_w * ratio_h
     resized_img = image.resize((target_width, target_height))
     processed_images = []
     for i in range(blocks):
@@ -68,12 +68,9 @@ def dynamic_preprocess(image, min_num=1, max_num=1, image_size=448, use_thumbnai
             ((i % (target_width // image_size)) + 1) * image_size,
             ((i // (target_width // image_size)) + 1) * image_size,
         )
-        split_img = resized_img.crop(box)
-        processed_images.append(split_img)
-    assert len(processed_images) == blocks
+        processed_images.append(resized_img.crop(box))
     if use_thumbnail and len(processed_images) != 1:
-        thumbnail_img = image.resize((image_size, image_size))
-        processed_images.append(thumbnail_img)
+        processed_images.append(image.resize((image_size, image_size)))
     return processed_images
 
 
@@ -86,31 +83,39 @@ class InternVL3Embedder(nn.Module):
         num_language_layers: int | None = 14,
         model_dtype: str | torch.dtype = "bfloat16",
         use_flash_attn: bool = True,
+        enable_gradient_checkpointing: bool = True,
+        gradient_checkpointing_use_reentrant: bool = False,
     ):
         super().__init__()
         self._requested_device = device
         self.image_size = image_size
         self.num_language_layers = num_language_layers
-        self.max_text_length = 1024  # InternVL3 supports up to 1024 tokens
-        self.transform = build_transform(image_size)
+        self.max_text_length = 1024
+        self.enable_gradient_checkpointing = bool(enable_gradient_checkpointing)
+        self.gradient_checkpointing_use_reentrant = bool(gradient_checkpointing_use_reentrant)
+
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, use_fast=False)
         if isinstance(model_dtype, str):
             try:
                 model_dtype = getattr(torch, model_dtype)
             except AttributeError as exc:
                 raise ValueError(f"Unsupported EVO1 vlm_dtype '{model_dtype}'") from exc
+
+        resolved_use_flash_attn = bool(use_flash_attn and flash_attn_is_available())
+        if use_flash_attn and not resolved_use_flash_attn:
+            logger.warning("flash_attn is not installed. Falling back to standard attention.")
+
         self.model = AutoModel.from_pretrained(
             model_name,
             torch_dtype=model_dtype,
             trust_remote_code=True,
-            use_flash_attn=use_flash_attn,
+            use_flash_attn=resolved_use_flash_attn,
             low_cpu_mem_usage=True,
             _fast_init=False,
         ).to(self._requested_device)
 
         if hasattr(self.model.language_model, "model"):
             layers = self.model.language_model.model.layers
-
         else:
             layers = self.model.language_model.layers
         if self.num_language_layers is not None:
@@ -122,58 +127,132 @@ class InternVL3Embedder(nn.Module):
             self.model.language_model.layers = torch.nn.ModuleList(layers)
         self.model.language_model.lm_head = torch.nn.Identity()
 
-        if hasattr(self.model, "vision_model") and hasattr(self.model.vision_model, "encoder"):
-            self.model.vision_model.encoder.gradient_checkpointing = True
-        if hasattr(self.model, "language_model") and hasattr(self.model.language_model, "gradient_checkpointing_enable"):
-            self.model.language_model.gradient_checkpointing_enable()
-
+        self._configure_memory_features()
         self.img_context_token_id = self.tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
 
+    def _configure_memory_features(self) -> None:
+        checkpoint_kwargs = {"use_reentrant": self.gradient_checkpointing_use_reentrant}
+
+        if not self.enable_gradient_checkpointing:
+            if hasattr(self.model, "vision_model") and hasattr(self.model.vision_model, "encoder"):
+                self.model.vision_model.encoder.gradient_checkpointing = False
+            language_model = getattr(self.model, "language_model", None)
+            if language_model is not None:
+                if hasattr(language_model, "gradient_checkpointing_disable"):
+                    language_model.gradient_checkpointing_disable()
+                elif hasattr(language_model, "gradient_checkpointing"):
+                    language_model.gradient_checkpointing = False
+                if hasattr(language_model, "model"):
+                    inner = language_model.model
+                    if hasattr(inner, "gradient_checkpointing_disable"):
+                        inner.gradient_checkpointing_disable()
+                    elif hasattr(inner, "gradient_checkpointing"):
+                        inner.gradient_checkpointing = False
+            return
+
+        def _enable_ckpt(module: nn.Module | None) -> bool:
+            if module is None:
+                return False
+            if hasattr(module, "gradient_checkpointing_enable"):
+                try:
+                    module.gradient_checkpointing_enable(gradient_checkpointing_kwargs=checkpoint_kwargs)
+                except TypeError:
+                    module.gradient_checkpointing_enable()
+                return True
+            if hasattr(module, "gradient_checkpointing"):
+                module.gradient_checkpointing = True
+                return True
+            return False
+
+        enabled_any = _enable_ckpt(self.model)
+
+        if hasattr(self.model, "vision_model") and hasattr(self.model.vision_model, "encoder"):
+            self.model.vision_model.encoder.gradient_checkpointing = True
+            enabled_any = True
+
+        language_model = getattr(self.model, "language_model", None)
+        if language_model is not None:
+            enabled_any = _enable_ckpt(language_model) or enabled_any
+            if hasattr(language_model, "model"):
+                enabled_any = _enable_ckpt(language_model.model) or enabled_any
+            if hasattr(language_model, "config"):
+                language_model.config.use_cache = False
+
+        if hasattr(self.model, "config"):
+            self.model.config.use_cache = False
+        if hasattr(self.model, "enable_input_require_grads"):
+            self.model.enable_input_require_grads()
+
+        if enabled_any:
+            logger.info("Gradient checkpointing enabled for InternVL3 embedder.")
+        else:
+            logger.warning("Requested gradient checkpointing, but model does not expose checkpointing controls.")
+
+    def _preprocess_single_image(self, image: Image.Image | torch.Tensor) -> torch.Tensor:
+        if isinstance(image, torch.Tensor):
+            pil_image = to_pil_image(image.detach().cpu())
+        else:
+            pil_image = image.convert("RGB")
+        tiles = dynamic_preprocess(pil_image, image_size=self.image_size)
+        tile_tensors = torch.stack([TF.to_tensor(tile) for tile in tiles]).to(device=self.device, dtype=torch.bfloat16)
+        mean = torch.tensor(IMAGENET_MEAN, device=self.device, dtype=torch.bfloat16).view(1, 3, 1, 1)
+        std = torch.tensor(IMAGENET_STD, device=self.device, dtype=torch.bfloat16).view(1, 3, 1, 1)
+        return (tile_tensors - mean) / std
+
     def _preprocess_images(
-        self, image_tensors: list[Image.Image | torch.Tensor]
-    ) -> tuple[torch.Tensor, list[int]]:
+        self,
+        image_tensors_batch: Sequence[Sequence[Image.Image | torch.Tensor]],
+    ) -> tuple[torch.Tensor, list[list[int]]]:
         pixel_values_list = []
-        for image in image_tensors:
-            if isinstance(image, torch.Tensor):
-                image = to_pil_image(image)
-            tiles = dynamic_preprocess(image, image_size=self.image_size)
-            tile_tensors = torch.stack([self.transform(t) for t in tiles])  # (T_i, 3, 448, 448)
-            pixel_values_list.append(tile_tensors)
+        batch_num_tiles_list: list[list[int]] = []
 
-        pixel_values = torch.cat(pixel_values_list, dim=0).to(dtype=torch.bfloat16, device=self.device)
-        num_tiles_list = [pv.shape[0] for pv in pixel_values_list]
+        for image_tensors in image_tensors_batch:
+            num_tiles_list: list[int] = []
+            for image in image_tensors:
+                tiles = self._preprocess_single_image(image)
+                pixel_values_list.append(tiles)
+                num_tiles_list.append(int(tiles.shape[0]))
+            batch_num_tiles_list.append(num_tiles_list)
 
-        return pixel_values, num_tiles_list
+        if pixel_values_list:
+            pixel_values = torch.cat(pixel_values_list, dim=0)
+        else:
+            pixel_values = torch.empty(0, 3, self.image_size, self.image_size, dtype=torch.bfloat16, device=self.device)
+        return pixel_values, batch_num_tiles_list
 
-    def _build_multimodal_prompt(self, num_tiles_list: list[int], text_prompt: str) -> str:
-        prompt = ""
-        for i in range(len(num_tiles_list)):
-            prompt += f"Image-{i + 1}: <image>\n"
-        prompt += text_prompt.strip()
-
-        for tile_count in num_tiles_list:
-            token_count = self.model.num_image_token * tile_count
-            image_tokens = IMG_START_TOKEN + IMG_CONTEXT_TOKEN * token_count + IMG_END_TOKEN
-            prompt = prompt.replace("<image>", image_tokens, 1)
-
-        return prompt
+    def _build_multimodal_prompts(
+        self,
+        batch_num_tiles_list: list[list[int]],
+        text_prompts: Sequence[str],
+    ) -> list[str]:
+        prompts = []
+        for num_tiles_list, text_prompt in zip(batch_num_tiles_list, text_prompts, strict=True):
+            prompt_segments = []
+            for i, tile_count in enumerate(num_tiles_list):
+                token_count = self.model.num_image_token * tile_count
+                image_tokens = IMG_START_TOKEN + IMG_CONTEXT_TOKEN * token_count + IMG_END_TOKEN
+                prompt_segments.append(f"Image-{i + 1}: {image_tokens}\n")
+            prompts.append("".join(prompt_segments) + text_prompt.strip())
+        return prompts
 
     def _prepare_and_fuse_embeddings(
-        self, prompt: str, vit_embeds: torch.Tensor, image_mask: torch.Tensor, num_tiles_list: list[int]
+        self,
+        prompts: Sequence[str],
+        vit_embeds: torch.Tensor,
+        image_masks: torch.Tensor,
+        batch_num_tiles_list: list[list[int]],
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        untruncated_ids = self.tokenizer(prompt, return_tensors="pt").input_ids
-        true_sequence_length = untruncated_ids.shape[1]
-
+        untruncated_ids = self.tokenizer(list(prompts), padding=False, truncation=False)["input_ids"]
+        true_sequence_length = max((len(ids) for ids in untruncated_ids), default=0)
         if true_sequence_length > self.max_text_length:
-            logging.warning(
-                "InternVL3 prompt truncated: max_length=%s actual_length=%s prompt_prefix=%r",
+            logger.warning(
+                "InternVL3 prompt truncated in batch: max_length=%s actual_max_length=%s",
                 self.max_text_length,
                 true_sequence_length,
-                prompt[:100],
             )
 
         model_inputs = self.tokenizer(
-            prompt,
+            list(prompts),
             return_tensors="pt",
             padding="max_length",
             truncation=True,
@@ -183,71 +262,78 @@ class InternVL3Embedder(nn.Module):
         attention_mask = model_inputs["attention_mask"]
 
         img_token_mask = input_ids == self.img_context_token_id
-
-        img_token_locations = torch.where(img_token_mask)[1]
-
         input_embeds = self.model.language_model.get_input_embeddings()(input_ids).clone()
 
-        batch_size, seq_len, channels = input_embeds.shape
-        input_embeds = input_embeds.reshape(batch_size * seq_len, channels)
-        input_ids = input_ids.reshape(batch_size * seq_len)
-
-        selected = input_ids == self.img_context_token_id
-
-        vit_embeds = vit_embeds.reshape(-1, channels).to(device=input_embeds.device, dtype=input_embeds.dtype)
-        n_token = int(selected.sum().item())
-        if vit_embeds.shape[0] < n_token:
-            raise ValueError(
-                f"InternVL3 produced fewer image tokens than expected: got {vit_embeds.shape[0]}, need {n_token}"
-            )
-        input_embeds[selected] = vit_embeds[:n_token]
-
+        batch_size, _, channels = input_embeds.shape
+        vit_embeds = vit_embeds.reshape(-1, channels).to(dtype=input_embeds.dtype, device=input_embeds.device)
         tokens_per_tile = self.model.num_image_token
+        actual_vis_tokens_list = img_token_mask.sum(dim=1).tolist()
 
-        current_token_idx = 0
-        for i in range(len(image_mask)):
-            num_tiles_for_this_image = num_tiles_list[i]
-            num_tokens_for_this_image = num_tiles_for_this_image * tokens_per_tile
+        vit_idx = 0
+        for batch_index in range(batch_size):
+            expected_vis_tokens = sum(batch_num_tiles_list[batch_index]) * tokens_per_tile
+            mask_b = img_token_mask[batch_index]
+            actual_vis_tokens = actual_vis_tokens_list[batch_index]
 
-            if not image_mask[i]:
-                start_idx = img_token_locations[current_token_idx]
-                end_idx = start_idx + num_tokens_for_this_image
+            item_vit_embeds = vit_embeds[vit_idx : vit_idx + expected_vis_tokens]
+            vit_idx += expected_vis_tokens
+            if actual_vis_tokens > 0:
+                if item_vit_embeds.shape[0] < actual_vis_tokens:
+                    raise ValueError(
+                        f"InternVL3 produced fewer image tokens than expected for sample {batch_index}: "
+                        f"got {item_vit_embeds.shape[0]}, need {actual_vis_tokens}"
+                    )
+                input_embeds[batch_index, mask_b] = item_vit_embeds[:actual_vis_tokens]
 
-                attention_mask[0, start_idx:end_idx] = 0
-
-            current_token_idx += num_tokens_for_this_image
-
-        input_embeds = input_embeds.reshape(batch_size, seq_len, channels)
+            current_token_idx = 0
+            img_token_locations = torch.where(mask_b)[0]
+            for image_index, num_tiles in enumerate(batch_num_tiles_list[batch_index]):
+                num_tokens_for_image = num_tiles * tokens_per_tile
+                if not bool(image_masks[batch_index, image_index].item()):
+                    start_offset = current_token_idx
+                    end_offset = min(current_token_idx + num_tokens_for_image, len(img_token_locations))
+                    if start_offset < end_offset:
+                        idxs = img_token_locations[start_offset:end_offset]
+                        attention_mask[batch_index, idxs] = 0
+                current_token_idx += num_tokens_for_image
 
         return input_embeds, attention_mask
 
     def get_fused_image_text_embedding_from_tensor_images(
         self,
-        image_tensors: list[Image.Image | torch.Tensor],
-        image_mask: torch.Tensor,
-        text_prompt: str,
+        image_tensors_batch: Sequence[Sequence[Image.Image | torch.Tensor]],
+        image_masks: torch.Tensor,
+        text_prompts: Sequence[str],
         return_cls_only: bool = True,
     ):
-        pixel_values, num_tiles_list = self._preprocess_images(image_tensors)
-
+        pixel_values, batch_num_tiles_list = self._preprocess_images(image_tensors_batch)
         if pixel_values.shape[0] == 0:
-            logging.warning("InternVL3 received an empty image batch after preprocessing.")
+            logger.warning("InternVL3 received an empty image batch after preprocessing.")
+            hidden_size = getattr(self.model.config, "hidden_size", None)
+            if hidden_size is None and hasattr(self.model.language_model, "config"):
+                hidden_size = getattr(self.model.language_model.config, "hidden_size", None)
+            if hidden_size is None:
+                raise RuntimeError("Unable to infer hidden size for empty InternVL3 batch.")
+            empty = torch.empty(0, hidden_size, device=self.device, dtype=torch.float32)
+            return empty
 
+        prompts = self._build_multimodal_prompts(batch_num_tiles_list, text_prompts)
         vit_embeds = self.model.extract_feature(pixel_values)
-        fused_embeds = vit_embeds
-        prompt = self._build_multimodal_prompt(num_tiles_list, text_prompt)
         inputs_embeds, attention_mask = self._prepare_and_fuse_embeddings(
-            prompt, fused_embeds, image_mask, num_tiles_list
+            prompts,
+            vit_embeds,
+            image_masks.to(device=self.device),
+            batch_num_tiles_list,
         )
 
         outputs = self.model.language_model(
             inputs_embeds=inputs_embeds,
             attention_mask=attention_mask,
             output_hidden_states=True,
+            use_cache=False,
             return_dict=True,
         )
         fused_hidden = outputs.hidden_states[-1].to(torch.float32)
-
         return fused_hidden[:, 0, :] if return_cls_only else fused_hidden
 
     @property

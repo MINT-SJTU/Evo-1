@@ -44,9 +44,11 @@ class EVO1Policy(PreTrainedPolicy):
         cache_dir: str | Path | None = None,
         local_files_only: bool = False,
         revision: str | None = None,
-        strict: bool = True,
+        strict: bool | None = None,
         **kwargs,
     ) -> T:
+        if strict is None:
+            strict = not (config is not None and getattr(config, "training_stage", None) == "stage2")
         return super().from_pretrained(
             pretrained_name_or_path=pretrained_name_or_path,
             config=config,
@@ -82,7 +84,11 @@ class EVO1Policy(PreTrainedPolicy):
             "dropout": config.dropout,
             "num_inference_timesteps": config.num_inference_timesteps,
             "num_categories": config.num_categories,
+            "enable_gradient_checkpointing": config.enable_gradient_checkpointing,
+            "gradient_checkpointing_use_reentrant": config.gradient_checkpointing_use_reentrant,
             "finetune_vlm": config.finetune_vlm,
+            "finetune_language_model": config.finetune_language_model,
+            "finetune_vision_model": config.finetune_vision_model,
             "finetune_action_head": config.finetune_action_head,
         }
 
@@ -210,7 +216,12 @@ class EVO1Policy(PreTrainedPolicy):
         explicit_mask = batch.get("action_mask")
         if explicit_mask is not None:
             if explicit_mask.dim() == 2:
-                explicit_mask = explicit_mask.unsqueeze(0)
+                if horizon == 1:
+                    explicit_mask = explicit_mask.unsqueeze(1)
+                else:
+                    raise ValueError(
+                        f"2D action_mask is only supported when chunk_size=1, got action horizon {horizon}"
+                    )
             elif explicit_mask.dim() != 3:
                 raise ValueError(
                     f"Unsupported action_mask tensor shape for EVO1: {tuple(explicit_mask.shape)}"
@@ -304,16 +315,13 @@ class EVO1Policy(PreTrainedPolicy):
         image_batches: list[list[Tensor]],
         image_masks: Tensor,
     ) -> Tensor:
-        fused_tokens = []
-        for prompt, images, image_mask in zip(prompts, image_batches, image_masks, strict=True):
-            fused = self.model.get_vl_embeddings(
-                images=images,
-                image_mask=image_mask,
-                prompt=prompt,
-                return_cls_only=self.config.return_cls_only,
-            )
-            fused_tokens.append(fused.to(device=self.config.device, dtype=self._compute_dtype))
-        return torch.cat(fused_tokens, dim=0)
+        fused_tokens = self.model.get_vl_embeddings(
+            images=image_batches,
+            image_mask=image_masks,
+            prompt=prompts,
+            return_cls_only=self.config.return_cls_only,
+        )
+        return fused_tokens.to(device=self.config.device, dtype=self._compute_dtype)
 
     def _compute_masked_loss(
         self,
