@@ -15,6 +15,8 @@
 
 
 ## 📰 News  
+- 🗓️ **2026-07-05** — Evo-1 has been added to the **official [LeRobot](https://github.com/huggingface/lerobot) framework** 🎉🎉.
+- 🗓️ **2026-06-07** — Evo-1 received the 🎖️ Efficient CVPR Badge 🎖️.
 - 🗓️ **2026-04-10** — Updated the `evo1-flash` branch: faster training with reduced GPU memory usage.
 - 🗓️ **2026-04-10** — Updated the `evo1-lerobot` branch: Evo-1 is now fully integrated into the LeRobot framework.
 - 🗓️ **2026-04-08** — Evo-1 is now fully integrated into the LeRobot framework!
