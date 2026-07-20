@@ -15,7 +15,7 @@
 
 
 ## 📰 News  
-- 🗓️ **2026-06-07** — Release LIBERO-plus benchmark evaluation scripts and results. See [LIBERO-plus benchmark](#-libero-plus-benchmark) part.
+- 🗓️ **2026-07-20** — Release LIBERO-plus benchmark evaluation scripts and results. See [LIBERO-plus benchmark](#-libero-plus-benchmark) part.
 - 🗓️ **2026-07-05** — Evo-1 has been added to the **official [LeRobot](https://github.com/huggingface/lerobot) framework** 🎉🎉.
 - 🗓️ **2026-06-07** — Evo-1 received the 🎖️ Efficient CVPR Badge 🎖️.
 - 🗓️ **2026-04-10** — Updated the `evo1-flash` branch: faster training with reduced GPU memory usage.
