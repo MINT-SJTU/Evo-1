@@ -15,6 +15,7 @@
 
 
 ## 📰 News  
+- 🗓️ **2026-06-07** — Release LIBERO-plus benchmark evaluation scripts and results. See [LIBERO-plus benchmark](#-libero-plus-benchmark) part.
 - 🗓️ **2026-07-05** — Evo-1 has been added to the **official [LeRobot](https://github.com/huggingface/lerobot) framework** 🎉🎉.
 - 🗓️ **2026-06-07** — Evo-1 received the 🎖️ Efficient CVPR Badge 🎖️.
 - 🗓️ **2026-04-10** — Updated the `evo1-flash` branch: faster training with reduced GPU memory usage.
@@ -186,6 +187,47 @@ cd LIBERO_evaluation
 
 python libero_client_4tasks.py
 ```
+---
+### 🧪 LIBERO-plus Benchmark
+
+### 1️⃣ Prepare the environment for LIBERO
+
+Prepare LIBERO-plus evaluation environment, detailed instructions can be found in [libero-plus-eval/README.md](libero-plus-eval/README.md). Follow Step 1 to Step 6 to set up the environment and download the necessary assets.
+
+### 2️⃣ Model Preparation
+
+### 📥 2.1 Download Model Weight
+LIBERO-plus model use the same Evo-1 model weight as LIBERO, you can download it from HuggingFace:
+
+```bash
+hf download MINT-SJTU/Evo1_LIBERO --local-dir /path/to/save/checkpoint/
+```
+
+### ✏️ 2.2 Modify server config
+Modify checkpoint dir: [Evo1_server.py#L149](Evo_1/scripts/Evo1_server.py#L149)  
+(Optional) Modify server port: [Evo1_server.py#L152](Evo_1/scripts/Evo1_server.py#L152) 
+
+#### 3️⃣ Run LIBERO Evaluation
+
+```bash
+# Terminal 1
+conda activate Evo1
+
+cd Evo_1
+
+python scripts/Evo1_server.py
+```
+
+Open another terminal and run the evaluation script for LIBERO-plus, more specific instructions can be found in [libero-plus-eval/README.md](libero-plus-eval/README.md) Step 7. Following is an simple example of running the evaluation for the `libero_spatial` suite:
+```bash
+# Terminal 2
+conda activate libero_plus
+export LIBERO_CONFIG_PATH="$HOME/.libero-plus"
+cd /path/to/libero-plus-eval
+
+bash test_libero_plus.sh libero_spatial
+```
+---
 
 ## 🧠 Training on Your Own Dataset
 
