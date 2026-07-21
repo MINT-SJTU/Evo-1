@@ -1,0 +1,8 @@
+policy_name: Evo1
+task_name: null
+task_config: null
+ckpt_setting: null
+seed: null
+instruction_type: unseen
+server_url: "ws://0.0.0.0:9000"
+horizon: 37

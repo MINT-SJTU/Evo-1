@@ -197,7 +197,7 @@ def load_model_and_normalizer(ckpt_dir):
 
     config_dict["finetune_vlm"] = False
     config_dict["finetune_action_head"] = False
-    config_dict["num_inference_timesteps"] = 32
+    config_dict["num_inference_timesteps"] = 50
 
     from config import EvoConfig
     config = EvoConfig.from_dict(config_dict)
@@ -227,10 +227,12 @@ def decode_image_from_list(img_list):
 def infer_from_json_dict(data: dict, model, normalizer, arm_key, dataset_key):
     device = "cuda"
     model_dtype = next(model.parameters()).dtype
-    # arm_key = data["arm_key"]
-    # arm_key = "franka_joint_angle"
-    # dataset_key = data["dataset_key"] 
-    # dataset_key = "close_box_120_w_last"
+    # Prefer per-request arm_key/dataset_key from the client payload; fall back to the
+    # server startup defaults. Needed for multi-task benchmarks (RoboTwin sends
+    # arm_key=aloha_joint and a per-task dataset_key=robotwin_<task>, and the norm
+    # stats are keyed per task).
+    arm_key = data.get("arm_key", arm_key)
+    dataset_key = data.get("dataset_key", dataset_key)
 
   
     images = [decode_image_from_list(img) for img in data["image"]]
@@ -301,7 +303,7 @@ if __name__ == "__main__":
         print(f"EVO_1 server running at ws://0.0.0.0:{port}")
         async with websockets.serve(
             lambda ws: handle_request(ws, model, normalizer, arm_key, dataset_key),
-            "0.0.0.0", port, max_size=100_000_000
+            "0.0.0.0", port, max_size=100_000_000, ping_interval=None, ping_timeout=None
         ):
             await asyncio.Future()
 

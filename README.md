@@ -7,6 +7,7 @@
 [![🌍 Website](https://img.shields.io/badge/Github-Website-green)](https://mint-sjtu.github.io/Evo-1.io/)  
 
 ## 📰 News  
+- 🗓️ **2026-07-21** — Released RoboTwin evaluation (Evo-1 policy plugin + 50 bimanual tasks)
 - 🗓️ **2026-04-08** — Evo-1 is now fully integrated into the LeRobot framework!
 - 🗓️ **2026-04-08** — We released Evo-1 Docker support for Jetson (https://huggingface.co/datasets/MINT-SJTU/Evo-1_JetsonOrin).
 - 🗓️ **2026-02-20** — Evo-1 is accepted by CVPR 2026 🎉🎉
@@ -24,8 +25,8 @@
 - ✅ Add Evo-1 to the LeRobot framework 
     (check evo1-lerobot branch)
 - ✅ Release instructions for deploying Evo-1 on Jetson Orin (https://huggingface.co/datasets/MINT-SJTU/Evo-1_JetsonOrin)
+- ✅ Release RoboTwin evaluation script
 - ⬜ Release results of all 50 RoboTwin tasks
-- ⬜ Release RoboTwin evaluation script  
 
 
 ## ⚙️ Installation
@@ -192,6 +193,76 @@ cd LIBERO_evaluation
 python libero_client_4tasks.py
 ```
 <br>
+
+---
+
+### 🧪 RoboTwin Benchmark
+
+RoboTwin (50 bimanual manipulation tasks in SAPIEN) uses a **policy-plugin** architecture: start the Evo-1 server, drop the Evo-1 policy adapter into a RoboTwin checkout, and launch RoboTwin's evaluator as the client.
+
+#### 1️⃣ Prepare the environment for RoboTwin
+
+RoboTwin is **not** bundled in this repo. Clone and install it separately (SAPIEN + CuRobo are required):
+
+```bash
+conda create -n RoboTwin python=3.10 -y
+conda activate RoboTwin
+
+git clone https://github.com/TianxingChen/RoboTwin.git
+cd RoboTwin
+pip install -r script/requirements.txt
+pip install websockets
+
+# CuRobo is REQUIRED — expert solvability check and scene setup use its motion planner
+cd envs && git clone https://github.com/NVlabs/curobo.git
+cd curobo && python -m pip install -e . --no-build-isolation && cd ../..
+```
+> See the [RoboTwin README](https://github.com/TianxingChen/RoboTwin) for full setup (assets, SAPIEN, mplib).
+
+#### 2️⃣ Model Preparation
+
+##### 📥 2.1 Download Model Weight
+
+```bash
+hf download MINT-SJTU/Evo1_RoboTwin --local-dir /path/to/save/checkpoint/
+```
+
+##### ✏️ 2.2 Modify config
+
+1. Modify checkpoint dir: [Evo1_server.py](Evo_1/scripts/Evo1_server.py#L288)
+2. **`arm_key` / `dataset_key`: no server edit needed for RoboTwin.** The client sends them per request (`arm_key=aloha_joint`, per-task `dataset_key=robotwin_<task>`) and the server reads them from the payload. RoboTwin `norm_stats.json` is keyed **per task** (50 keys under `aloha_joint`), so a single fixed `dataset_key` would be wrong for 49/50 tasks — the per-request key is required.
+3. (Optional) Modify server port: [Evo1_server.py](Evo_1/scripts/Evo1_server.py#L291)
+
+##### 🔌 2.3 Install the Evo-1 policy plugin into RoboTwin
+
+```bash
+cp -r RoboTwin_evaluation/policy/Evo1  /path/to/RoboTwin/policy/Evo1
+```
+
+#### 3️⃣ Run RoboTwin Evaluation
+
+```bash
+# Terminal 1 — Evo-1 server (PYTHONPATH=. lets the server import scripts.* and config)
+conda activate Evo1
+cd Evo_1
+PYTHONPATH=. python scripts/Evo1_server.py
+```
+
+```bash
+# Terminal 2 — RoboTwin client, one task
+conda activate RoboTwin
+cd /path/to/RoboTwin/policy/Evo1
+
+# Usage: bash eval.sh <task_name> [task_config] [ckpt_setting] [seed] [gpu_id] [server_url] [horizon]
+bash eval.sh place_burger_fries demo_clean step_20000 0 0 ws://0.0.0.0:9000 37
+```
+
+> **⚠️ Evaluation recipe — three settings must be applied together (dropping any one roughly halves the success rate):**
+> 1. **`horizon=37`** — actions executed per inference call (the default in `eval.sh`; success rate rises with horizon and plateaus around 37).
+> 2. **`num_inference_timesteps=50`** in `Evo1_server.py` (not 32 — 32 causes action jitter).
+> 3. **Gaussian action smoothing, kernel=9** — hardcoded in `policy/Evo1/deploy_policy.py`.
+>
+> All three are already configured in this repo. Each task runs 100 episodes with expert solvability check; results are written under `RoboTwin/eval_result/`.
 
 ----
 
