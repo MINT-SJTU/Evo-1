@@ -15,6 +15,7 @@
 
 
 ## 📰 News  
+- 🗓️ **2026-07-21** — Released RoboTwin evaluation (Evo-1 policy plugin + 50 bimanual tasks). See [RoboTwin benchmark](#-robotwin-benchmark) part.
 - 🗓️ **2026-07-20** — Release LIBERO-plus benchmark evaluation scripts and results. See [LIBERO-plus benchmark](#-libero-plus-benchmark) part.
 - 🗓️ **2026-07-05** — Evo-1 has been added to the **official [LeRobot](https://github.com/huggingface/lerobot) framework** 🎉🎉.
 - 🗓️ **2026-06-07** — Evo-1 received the 🎖️ Efficient CVPR Badge 🎖️.
@@ -39,8 +40,8 @@
 - ✅ Update `evo1-flash` branch (faster training + reduced GPU memory usage)
 - ✅ Update `evo1-lerobot` branch (fully integrated Evo-1 into the LeRobot framework)
 - ✅ Release instructions for deploying Evo-1 on Jetson Orin (https://huggingface.co/datasets/MINT-SJTU/Evo-1_JetsonOrin)
+- ✅ Release RoboTwin evaluation script (see the [`evo1-flash`](https://github.com/MINT-SJTU/Evo-1/tree/evo1-flash) branch)
 - ⬜ Release results of all 50 RoboTwin tasks
-- ⬜ Release RoboTwin evaluation script  
   
 
 
@@ -227,6 +228,17 @@ cd /path/to/libero-plus-eval
 
 bash test_libero_plus.sh libero_spatial
 ```
+---
+
+### 🧪 RoboTwin Benchmark
+
+Evo-1 is evaluated on **RoboTwin 2.0** (50 bimanual manipulation tasks, `aloha-agilex` embodiment). RoboTwin uses a **policy-plugin** architecture: start the Evo-1 server, drop the Evo-1 policy adapter into a RoboTwin checkout, and launch RoboTwin's evaluator as the client.
+
+- **Model weight:** `hf download MINT-SJTU/Evo1_RoboTwin --local-dir /path/to/save/checkpoint/`
+- **Evaluation scripts** — the policy plugin (`RoboTwin_evaluation/`) and full step-by-step instructions live in the [`evo1-flash`](https://github.com/MINT-SJTU/Evo-1/tree/evo1-flash) branch (see its README's *RoboTwin Benchmark* section).
+
+> **⚠️ Evaluation recipe (all three matter — dropping any one roughly halves the success rate):** `horizon=37`, `num_inference_timesteps=50`, and gaussian action smoothing (kernel=9).
+
 ---
 
 ## 🧠 Training on Your Own Dataset
