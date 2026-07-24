@@ -257,12 +257,7 @@ cd /path/to/RoboTwin/policy/Evo1
 bash eval.sh place_burger_fries demo_clean step_20000 0 0 ws://0.0.0.0:9000 37
 ```
 
-> **⚠️ Evaluation recipe — three settings must be applied together (dropping any one roughly halves the success rate):**
-> 1. **`horizon=37`** — actions executed per inference call (the default in `eval.sh`; success rate rises with horizon and plateaus around 37).
-> 2. **`num_inference_timesteps=50`** in `Evo1_server.py` (not 32 — 32 causes action jitter).
-> 3. **Gaussian action smoothing, kernel=9** — hardcoded in `policy/Evo1/deploy_policy.py`.
->
-> All three are already configured in this repo. Each task runs 100 episodes with expert solvability check; results are written under `RoboTwin/eval_result/`.
+Each task runs 100 episodes with expert solvability check; results are written under `RoboTwin/eval_result/`.
 
 ----
 
