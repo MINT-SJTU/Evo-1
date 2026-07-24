@@ -237,8 +237,6 @@ Evo-1 is evaluated on **RoboTwin 2.0** (50 bimanual manipulation tasks, `aloha-a
 - **Model weight:** `hf download MINT-SJTU/Evo1_RoboTwin --local-dir /path/to/save/checkpoint/`
 - **Evaluation scripts** — the policy plugin (`RoboTwin_evaluation/`) and full step-by-step instructions live in the [`evo1-flash`](https://github.com/MINT-SJTU/Evo-1/tree/evo1-flash) branch (see its README's *RoboTwin Benchmark* section).
 
-> **⚠️ Evaluation recipe (all three matter — dropping any one roughly halves the success rate):** `horizon=37`, `num_inference_timesteps=50`, and gaussian action smoothing (kernel=9).
-
 ---
 
 ## 🧠 Training on Your Own Dataset
