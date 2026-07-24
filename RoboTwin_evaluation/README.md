@@ -74,10 +74,11 @@ Results were independently reproduced.
 
 Inference examples:
 
-
-https://github.com/user-attachments/assets/8c4bac58-93fe-4187-bcf0-700c0a1a46b3
-
-
-https://github.com/user-attachments/assets/526c0599-feaf-4c8c-b3f2-6fe710fcdd6f
+<table>
+  <tr>
+    <td width="50%"><video src="https://github.com/user-attachments/assets/8c4bac58-93fe-4187-bcf0-700c0a1a46b3" controls muted width="100%"></video></td>
+    <td width="50%"><video src="https://github.com/user-attachments/assets/526c0599-feaf-4c8c-b3f2-6fe710fcdd6f" controls muted width="100%"></video></td>
+  </tr>
+</table>
 
 
