@@ -69,3 +69,7 @@ each task is rolled out **100 times** (50 tasks × 100 = 5000 evaluation episode
 | place_bread_basket | 50% | | stack_blocks_three | 0% |
 
 Results were independently reproduced.
+
+## Demos
+
+Inference examples:
