@@ -23,31 +23,13 @@ edit is needed for RoboTwin** — the client sends `arm_key=aloha_joint` and the
 `dataset_key=robotwin_<task>` (RoboTwin `norm_stats.json` is keyed per task, 50 keys under
 `aloha_joint`).
 
-## ⚠️ Evaluation recipe (all three matter — dropping any one roughly halves success rate)
+## Inference Settings
+
+The policy is served with:
 
 1. **`horizon=37`** — actions executed per inference call (default in `eval.sh` / `deploy_policy.yml`).
-2. **`num_inference_timesteps=50`** in `Evo_1/scripts/Evo1_server.py` (not 32; 32 causes action jitter).
-3. **Gaussian action smoothing, kernel=9** — hardcoded in `deploy_policy.py` `eval()`.
-
-Verified on `place_burger_fries` (2/2 success at horizon=37) with the RoboTwin multitask checkpoint.
-
-## Demos
-
-Successful rollouts with the recipe above (Gaussian action smoothing, kernel 9) — motions are
-**smooth, with no action jitter**:
-
-<table>
-  <tr>
-    <td align="center" width="50%">
-      <video src="https://github.com/MINT-SJTU/Evo-1/raw/evo1-flash/RoboTwin_evaluation/assets/adjust_bottle.mp4" controls muted width="100%"></video>
-      <br/><sub><b>adjust_bottle</b></sub>
-    </td>
-    <td align="center" width="50%">
-      <video src="https://github.com/MINT-SJTU/Evo-1/raw/evo1-flash/RoboTwin_evaluation/assets/beat_block_hammer.mp4" controls muted width="100%"></video>
-      <br/><sub><b>beat_block_hammer</b></sub>
-    </td>
-  </tr>
-</table>
+2. **`num_inference_timesteps=50`** in `Evo_1/scripts/Evo1_server.py`.
+3. **Gaussian action smoothing, kernel=9** — in `deploy_policy.py`.
 
 ## Results — RoboTwin-50 (`demo_clean`)
 
