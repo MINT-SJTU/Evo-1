@@ -31,6 +31,24 @@ edit is needed for RoboTwin** — the client sends `arm_key=aloha_joint` and the
 
 Verified on `place_burger_fries` (2/2 success at horizon=37) with the RoboTwin multitask checkpoint.
 
+## Demos
+
+Successful rollouts with the recipe above (Gaussian action smoothing, kernel 9) — motions are
+**smooth, with no action jitter**:
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <video src="https://github.com/MINT-SJTU/Evo-1/raw/evo1-flash/RoboTwin_evaluation/assets/adjust_bottle.mp4" controls muted width="100%"></video>
+      <br/><sub><b>adjust_bottle</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <video src="https://github.com/MINT-SJTU/Evo-1/raw/evo1-flash/RoboTwin_evaluation/assets/beat_block_hammer.mp4" controls muted width="100%"></video>
+      <br/><sub><b>beat_block_hammer</b></sub>
+    </td>
+  </tr>
+</table>
+
 ## Results — RoboTwin-50 (`demo_clean`)
 
 A **single multi-task policy trained on clean data only** — 50 RoboTwin tasks,
