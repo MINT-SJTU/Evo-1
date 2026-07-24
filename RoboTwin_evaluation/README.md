@@ -73,3 +73,11 @@ Results were independently reproduced.
 ## Demos
 
 Inference examples:
+
+
+https://github.com/user-attachments/assets/8c4bac58-93fe-4187-bcf0-700c0a1a46b3
+
+
+https://github.com/user-attachments/assets/526c0599-feaf-4c8c-b3f2-6fe710fcdd6f
+
+
