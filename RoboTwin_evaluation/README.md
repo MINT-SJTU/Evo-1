@@ -30,3 +30,40 @@ edit is needed for RoboTwin** — the client sends `arm_key=aloha_joint` and the
 3. **Gaussian action smoothing, kernel=9** — hardcoded in `deploy_policy.py` `eval()`.
 
 Verified on `place_burger_fries` (2/2 success at horizon=37) with the RoboTwin multitask checkpoint.
+
+## Results — RoboTwin-50 (`demo_clean`)
+
+Checkpoint `MINT-SJTU/Evo1_RoboTwin`, `horizon=37`, 100 episodes per task (5000 total).
+
+**Overall success rate: 48.0% (2399 / 5000)**
+
+| Task | SR | | Task | SR |
+|---|---|---|---|---|
+| grab_roller | 100% | | blocks_ranking_rgb | 48% |
+| lift_pot | 98% | | click_bell | 48% |
+| place_burger_fries | 95% | | handover_block | 35% |
+| place_cans_plasticbox | 94% | | place_object_stand | 35% |
+| shake_bottle | 94% | | blocks_ranking_size | 34% |
+| handover_mic | 93% | | stack_blocks_two | 34% |
+| shake_bottle_horizontally | 93% | | place_dual_shoes | 33% |
+| adjust_bottle | 90% | | open_microwave | 28% |
+| place_empty_cup | 86% | | place_a2b_left | 27% |
+| press_stapler | 84% | | place_fan | 26% |
+| place_container_plate | 80% | | stamp_seal | 25% |
+| click_alarmclock | 79% | | place_object_scale | 23% |
+| place_bread_skillet | 78% | | place_mouse_pad | 18% |
+| stack_bowls_two | 78% | | turn_switch | 14% |
+| move_playingcard_away | 73% | | hanging_mug | 10% |
+| place_phone_stand | 72% | | place_a2b_right | 10% |
+| beat_block_hammer | 70% | | place_shoe | 9% |
+| pick_diverse_bottles | 67% | | move_stapler_pad | 5% |
+| move_pillbottle_pad | 61% | | rotate_qrcode | 5% |
+| move_can_pot | 59% | | put_object_cabinet | 4% |
+| open_laptop | 59% | | place_object_basket | 3% |
+| pick_dual_bottles | 58% | | scan_object | 3% |
+| dump_bin_bigbin | 56% | | place_can_basket | 0% |
+| stack_bowls_three | 55% | | put_bottles_dustbin | 0% |
+| place_bread_basket | 50% | | stack_blocks_three | 0% |
+
+Results were independently reproduced. Evaluated on RoboTwin-50 (`demo_clean`, 100
+episodes per task) with the released `MINT-SJTU/Evo1_RoboTwin` checkpoint.
