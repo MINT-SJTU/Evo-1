@@ -33,9 +33,12 @@ Verified on `place_burger_fries` (2/2 success at horizon=37) with the RoboTwin m
 
 ## Results — RoboTwin-50 (`demo_clean`)
 
-Checkpoint `MINT-SJTU/Evo1_RoboTwin`, `horizon=37`, 100 episodes per task (5000 total).
+A **single multi-task policy trained on clean data only** — 50 RoboTwin tasks,
+**50 `demo_clean` demonstrations per task** (no randomized / augmented data). At **test time**
+each task is rolled out **100 times** (50 tasks × 100 = 5000 evaluation episodes),
+`horizon=37`, using the released `MINT-SJTU/Evo1_RoboTwin` checkpoint.
 
-**Overall success rate: 48.0% (2399 / 5000)**
+**Overall success rate: 48.0% (2399 / 5000 evaluation rollouts)**
 
 | Task | SR | | Task | SR |
 |---|---|---|---|---|
@@ -65,5 +68,4 @@ Checkpoint `MINT-SJTU/Evo1_RoboTwin`, `horizon=37`, 100 episodes per task (5000 
 | stack_bowls_three | 55% | | put_bottles_dustbin | 0% |
 | place_bread_basket | 50% | | stack_blocks_three | 0% |
 
-Results were independently reproduced. Evaluated on RoboTwin-50 (`demo_clean`, 100
-episodes per task) with the released `MINT-SJTU/Evo1_RoboTwin` checkpoint.
+Results were independently reproduced.
