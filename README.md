@@ -41,7 +41,7 @@
 - ✅ Update `evo1-lerobot` branch (fully integrated Evo-1 into the LeRobot framework)
 - ✅ Release instructions for deploying Evo-1 on Jetson Orin (https://huggingface.co/datasets/MINT-SJTU/Evo-1_JetsonOrin)
 - ✅ Release RoboTwin evaluation script (see the [`evo1-flash`](https://github.com/MINT-SJTU/Evo-1/tree/evo1-flash) branch)
-- ⬜ Release results of all 50 RoboTwin tasks
+- ✅ Release results of all 50 RoboTwin tasks
   
 
 
