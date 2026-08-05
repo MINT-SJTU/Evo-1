@@ -15,6 +15,7 @@
 
 
 ## 📰 News  
+- 🗓️ **2026-08-05** — Evo-1 is now supported in the **official [RLinf](https://github.com/RLinf/RLinf) framework** 🔥: full-parameter SFT and GRPO fine-tuning on the LIBERO simulator ([doc](https://rlinf.readthedocs.io/en/latest/rst_source/examples/embodied/evo1.html)).
 - 🗓️ **2026-07-21** — Released RoboTwin evaluation (Evo-1 policy plugin + 50 bimanual tasks). See [RoboTwin benchmark](#-robotwin-benchmark) part.
 - 🗓️ **2026-07-20** — Release LIBERO-plus benchmark evaluation scripts and results. See [LIBERO-plus benchmark](#-libero-plus-benchmark) part.
 - 🗓️ **2026-07-05** — Evo-1 has been added to the **official [LeRobot](https://github.com/huggingface/lerobot) framework** 🎉🎉.
