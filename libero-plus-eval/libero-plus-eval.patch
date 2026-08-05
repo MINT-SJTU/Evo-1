@@ -1,0 +1,55 @@
+diff --git a/libero/__init__.py b/libero/__init__.py
+new file mode 100644
+--- /dev/null
++++ b/libero/__init__.py
+@@ -0,0 +1 @@
++"""LIBERO-Plus Python package."""
+diff --git a/libero/libero/benchmark/__init__.py b/libero/libero/benchmark/__init__.py
+index 8156148..2dddcc3 100644
+--- a/libero/libero/benchmark/__init__.py
++++ b/libero/libero/benchmark/__init__.py
+@@ -239,7 +239,7 @@ class Benchmark(abc.ABC):
+         
+         # print("====init_states_path=====", init_states_path)
+ 
+-        init_states = torch.load(init_states_path)
++        init_states = torch.load(init_states_path, weights_only=False)
+         if "_add_" in self.tasks[i].init_states_file or "_level" in self.tasks[i].init_states_file:
+             init_states = init_states.reshape(1, -1)
+         return init_states
+diff --git a/libero/libero/envs/env_wrapper.py b/libero/libero/envs/env_wrapper.py
+index 8a629c2..28f9ba1 100644
+--- a/libero/libero/envs/env_wrapper.py
++++ b/libero/libero/envs/env_wrapper.py
+@@ -14,6 +14,7 @@ import ctypes
+ from wand.api import library as wandlibrary
+ from wand.image import Image as WandImage
+ from skimage.filters import gaussian
++from skimage.transform import resize
+ from scipy.ndimage import zoom as scizoom
+ 
+ # Tell Python about the C method
+@@ -145,11 +146,20 @@ def plasma_fractal(mapsize=256, wibbledecay=3):
+ 
+ def fog(x, severity=1):
+     # c = [(1.5, 2), (2., 2), (2.5, 1.7), (2.5, 1.5), (3., 1.4)][severity - 1]
+-    c = [(0.5, 3), (1.0, 2.8), (1.5, 2.5), (2.0, 2.2), (2.5, 2.0), (3.0, 1.8), (3.5, 1.6), (4.0, 1.5), (4.5, 1.4), (5.0, 1.3)][severity - 1]
++    c = [(0.5, 3), (1.0, 2.8), (1.5, 2.5), (2.0, 2.2),
++         (2.5, 2.0), (3.0, 1.8), (3.5, 1.6), (4.0, 1.5),
++         (4.5, 1.4), (5.0, 1.3)][severity - 1]
++
++    x = np.array(x, dtype=np.float32) / 255.
++    h, w, ch = x.shape
++
++    noise = plasma_fractal(wibbledecay=c[1])
++    noise = resize(noise, (h, w), order=1, preserve_range=True)
++    noise = noise[..., np.newaxis]
++    noise = np.repeat(noise, ch, axis=-1)
+ 
+-    x = np.array(x) / 255.
+     max_val = x.max()
+-    x += c[0] * plasma_fractal(wibbledecay=c[1])[:256, :256][..., np.newaxis]
++    x += c[0] * noise
+     return np.clip(x * max_val / (max_val + c[0]), 0, 1) * 255
+ 
+ def glass_blur(x, severity=1):

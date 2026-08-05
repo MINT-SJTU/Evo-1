@@ -1,0 +1,5 @@
+assets: /absolute/path/to/LIBERO-plus/libero/libero/assets
+bddl_files: /absolute/path/to/LIBERO-plus/libero/libero/bddl_files
+benchmark_root: /absolute/path/to/LIBERO-plus/libero/libero
+datasets: /absolute/path/to/LIBERO-plus/libero/datasets
+init_states: /absolute/path/to/LIBERO-plus/libero/libero/init_files

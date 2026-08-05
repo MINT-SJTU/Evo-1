@@ -8,7 +8,12 @@
 
 ## 📰 News  
 - 🗓️ **2026-08-05** — Evo-1 is now supported in the **official [RLinf](https://github.com/RLinf/RLinf) framework** 🔥: full-parameter SFT and GRPO fine-tuning on the LIBERO simulator ([doc](https://rlinf.readthedocs.io/en/latest/rst_source/examples/embodied/evo1.html)).
-- 🗓️ **2026-07-21** — Released RoboTwin evaluation (Evo-1 policy plugin + 50 bimanual tasks)
+- 🗓️ **2026-07-21** — Released RoboTwin evaluation (Evo-1 policy plugin + 50 bimanual tasks). See [RoboTwin benchmark](#-robotwin-benchmark) part.
+- 🗓️ **2026-07-20** — Release LIBERO-plus benchmark evaluation scripts and results. See [LIBERO-plus benchmark](#-libero-plus-benchmark) part.
+- 🗓️ **2026-07-05** — Evo-1 has been added to the **official [LeRobot](https://github.com/huggingface/lerobot) framework** 🎉🎉.
+- 🗓️ **2026-06-07** — Evo-1 received the 🎖️ Efficient CVPR Badge 🎖️.
+- 🗓️ **2026-04-10** — Updated the `evo1-flash` branch: faster training with reduced GPU memory usage.
+- 🗓️ **2026-04-10** — Updated the `evo1-lerobot` branch: Evo-1 is now fully integrated into the LeRobot framework.
 - 🗓️ **2026-04-08** — Evo-1 is now fully integrated into the LeRobot framework!
 - 🗓️ **2026-04-08** — We released Evo-1 Docker support for Jetson (https://huggingface.co/datasets/MINT-SJTU/Evo-1_JetsonOrin).
 - 🗓️ **2026-02-20** — Evo-1 is accepted by CVPR 2026 🎉🎉
@@ -23,8 +28,8 @@
 ## ✅ To-Do List  
 
 - ✅ Release inference script in xarm6 
-- ✅ Add Evo-1 to the LeRobot framework 
-    (check evo1-lerobot branch)
+- ✅ Update `evo1-flash` branch (faster training + reduced GPU memory usage)
+- ✅ Update `evo1-lerobot` branch (fully integrated Evo-1 into the LeRobot framework)
 - ✅ Release instructions for deploying Evo-1 on Jetson Orin (https://huggingface.co/datasets/MINT-SJTU/Evo-1_JetsonOrin)
 - ✅ Release RoboTwin evaluation script
 - ✅ Release results of all 50 RoboTwin tasks
@@ -192,6 +197,52 @@ conda activate libero
 cd LIBERO_evaluation
 
 python libero_client_4tasks.py
+```
+<br>
+
+---
+
+### 🧪 LIBERO-plus Benchmark
+
+#### 1️⃣ Prepare the environment for LIBERO-plus
+
+Prepare LIBERO-plus evaluation environment, detailed instructions can be found in [libero-plus-eval/README.md](libero-plus-eval/README.md). Follow Step 1 to Step 6 to set up the environment and download the necessary assets.
+
+#### 2️⃣ Model Preparation
+
+##### 📥 2.1 Download Model Weight
+
+LIBERO-plus model use the same Evo-1 model weight as LIBERO, you can download it from HuggingFace:
+
+```bash
+hf download MINT-SJTU/Evo1_LIBERO --local-dir /path/to/save/checkpoint/
+```
+
+##### ✏️ 2.2 Modify server config
+
+1. Modify checkpoint dir: [Evo1_server.py](Evo_1/scripts/Evo1_server.py#L288)  
+2. Modify arm key and dataset key to match your LIBERO checkpoint's `norm_stats.json`, same as step 2.2 of the [LIBERO Benchmark](#-libero-benchmark): [Evo1_server.py](Evo_1/scripts/Evo1_server.py#L294)  
+3. (Optional) Modify server port: [Evo1_server.py](Evo_1/scripts/Evo1_server.py#L291) 
+
+#### 3️⃣ Run LIBERO-plus Evaluation
+
+```bash
+# Terminal 1
+conda activate Evo1
+
+cd Evo_1
+
+python scripts/Evo1_server.py
+```
+
+Open another terminal and run the evaluation script for LIBERO-plus, more specific instructions can be found in [libero-plus-eval/README.md](libero-plus-eval/README.md) Step 7. Following is an simple example of running the evaluation for the `libero_spatial` suite:
+```bash
+# Terminal 2
+conda activate libero_plus
+export LIBERO_CONFIG_PATH="$HOME/.libero-plus"
+cd /path/to/libero-plus-eval
+
+bash test_libero_plus.sh libero_spatial
 ```
 <br>
 
