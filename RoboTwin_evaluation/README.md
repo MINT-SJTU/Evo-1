@@ -38,37 +38,35 @@ A **single multi-task policy trained on clean data only** — 50 RoboTwin tasks,
 each task is rolled out **100 times** (50 tasks × 100 = 5000 evaluation episodes),
 `horizon=37`, using the released `MINT-SJTU/Evo1_RoboTwin` checkpoint.
 
-**Overall success rate: 48.0% (2399 / 5000 evaluation rollouts)**
+**Overall success rate: 65.7% (3287 / 5000 evaluation rollouts)**
 
 | Task | SR | | Task | SR |
 |---|---|---|---|---|
-| grab_roller | 100% | | blocks_ranking_rgb | 48% |
-| lift_pot | 98% | | click_bell | 48% |
-| place_burger_fries | 95% | | handover_block | 35% |
-| place_cans_plasticbox | 94% | | place_object_stand | 35% |
-| shake_bottle | 94% | | blocks_ranking_size | 34% |
-| handover_mic | 93% | | stack_blocks_two | 34% |
-| shake_bottle_horizontally | 93% | | place_dual_shoes | 33% |
-| adjust_bottle | 90% | | open_microwave | 28% |
-| place_empty_cup | 86% | | place_a2b_left | 27% |
-| press_stapler | 84% | | place_fan | 26% |
-| place_container_plate | 80% | | stamp_seal | 25% |
-| click_alarmclock | 79% | | place_object_scale | 23% |
-| place_bread_skillet | 78% | | place_mouse_pad | 18% |
-| stack_bowls_two | 78% | | turn_switch | 14% |
-| move_playingcard_away | 73% | | hanging_mug | 10% |
-| place_phone_stand | 72% | | place_a2b_right | 10% |
-| beat_block_hammer | 70% | | place_shoe | 9% |
-| pick_diverse_bottles | 67% | | move_stapler_pad | 5% |
-| move_pillbottle_pad | 61% | | rotate_qrcode | 5% |
-| move_can_pot | 59% | | put_object_cabinet | 4% |
-| open_laptop | 59% | | place_object_basket | 3% |
-| pick_dual_bottles | 58% | | scan_object | 3% |
-| dump_bin_bigbin | 56% | | place_can_basket | 0% |
-| stack_bowls_three | 55% | | put_bottles_dustbin | 0% |
-| place_bread_basket | 50% | | stack_blocks_three | 0% |
-
-Results were independently reproduced.
+| adjust_bottle | 100% | | place_phone_stand | 73% |
+| handover_mic | 100% | | place_object_stand | 72% |
+| stack_blocks_two | 100% | | open_microwave | 70% |
+| click_alarmclock | 98% | | place_cans_plasticbox | 70% |
+| grab_roller | 98% | | move_can_pot | 69% |
+| shake_bottle_horizontally | 98% | | put_bottles_dustbin | 69% |
+| place_container_plate | 96% | | place_bread_basket | 63% |
+| click_bell | 95% | | place_bread_skillet | 63% |
+| dump_bin_bigbin | 95% | | blocks_ranking_size | 58% |
+| stack_bowls_two | 93% | | place_can_basket | 50% |
+| shake_bottle | 91% | | pick_diverse_bottles | 49% |
+| place_burger_fries | 90% | | place_object_scale | 49% |
+| stack_blocks_three | 87% | | place_a2b_left | 48% |
+| stack_bowls_three | 85% | | put_object_cabinet | 39% |
+| press_stapler | 83% | | place_a2b_right | 38% |
+| beat_block_hammer | 82% | | place_fan | 34% |
+| open_laptop | 82% | | place_shoe | 33% |
+| lift_pot | 81% | | rotate_qrcode | 32% |
+| move_playingcard_away | 81% | | scan_object | 32% |
+| place_object_basket | 79% | | stamp_seal | 28% |
+| place_empty_cup | 77% | | turn_switch | 28% |
+| blocks_ranking_rgb | 76% | | place_mouse_pad | 17% |
+| pick_dual_bottles | 76% | | hanging_mug | 9% |
+| move_pillbottle_pad | 75% | | place_dual_shoes | 2% |
+| handover_block | 74% | | move_stapler_pad | 0% |
 
 ## Demos
 

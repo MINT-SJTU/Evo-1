@@ -26,7 +26,7 @@
     (check evo1-lerobot branch)
 - ✅ Release instructions for deploying Evo-1 on Jetson Orin (https://huggingface.co/datasets/MINT-SJTU/Evo-1_JetsonOrin)
 - ✅ Release RoboTwin evaluation script
-- ⬜ Release results of all 50 RoboTwin tasks
+- ✅ Release results of all 50 RoboTwin tasks
 
 
 ## ⚙️ Installation
