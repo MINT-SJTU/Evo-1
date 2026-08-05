@@ -7,6 +7,7 @@
 [![🌍 Website](https://img.shields.io/badge/Github-Website-green)](https://mint-sjtu.github.io/Evo-1.io/)  
 
 ## 📰 News  
+- 🗓️ **2026-08-05** — Evo-1 is now supported in the **official [RLinf](https://github.com/RLinf/RLinf) framework** 🔥: full-parameter SFT and GRPO fine-tuning on the LIBERO simulator ([doc](https://rlinf.readthedocs.io/en/latest/rst_source/examples/embodied/evo1.html)).
 - 🗓️ **2026-07-21** — Released RoboTwin evaluation (Evo-1 policy plugin + 50 bimanual tasks)
 - 🗓️ **2026-04-08** — Evo-1 is now fully integrated into the LeRobot framework!
 - 🗓️ **2026-04-08** — We released Evo-1 Docker support for Jetson (https://huggingface.co/datasets/MINT-SJTU/Evo-1_JetsonOrin).
