@@ -23,6 +23,7 @@ import shutil
 from torch.optim import AdamW
 
 from config import EvoConfig
+import device_utils
 import warnings
 
 accelerator = Accelerator()
@@ -223,9 +224,10 @@ def log_training_step(step, loss, total_norm, momentum_norm, scheduler, dataload
     current_epoch = step / len(dataloader)
     
     # === Collect GPU memory stats ===
-    current_real_memory = torch.cuda.memory_allocated() / 1024**3
-    peak_real_memory = torch.cuda.max_memory_allocated() / 1024**3
-    current_reserved_memory = torch.cuda.memory_reserved() / 1024**3
+    memory_device = accelerator.device if accelerator is not None else None
+    current_real_memory = device_utils.memory_allocated(memory_device) / 1024**3
+    peak_real_memory = device_utils.max_memory_allocated(memory_device) / 1024**3
+    current_reserved_memory = device_utils.memory_reserved(memory_device) / 1024**3
     
     if accelerator is None or accelerator.is_main_process:
         logging.info(f"Estimated Epoch: {current_epoch:.2f}")
@@ -484,7 +486,7 @@ def train(config: EvoConfig):
     
     use_fused_adamw = config.fused_adamw
     optimizer_kwargs = {}
-    if use_fused_adamw and torch.cuda.is_available():
+    if use_fused_adamw and device_utils.device_type(accelerator.device) in ("cuda", "xpu"):
         if "fused" in inspect.signature(torch.optim.AdamW).parameters:
             optimizer_kwargs["fused"] = True
             if accelerator.is_main_process:
@@ -493,7 +495,15 @@ def train(config: EvoConfig):
             if accelerator.is_main_process:
                 logging.warning("Fused AdamW requested but not supported by this PyTorch version")
 
-    optimizer = AdamW(build_param_groups(model, wd), lr=lr, **optimizer_kwargs)
+    try:
+        optimizer = AdamW(build_param_groups(model, wd), lr=lr, **optimizer_kwargs)
+    except RuntimeError:
+        if not optimizer_kwargs:
+            raise
+        # Older PyTorch builds do not ship a fused AdamW kernel for every backend.
+        optimizer_kwargs = {}
+        logging.warning("Fused AdamW is not supported on this device; using the default AdamW.")
+        optimizer = AdamW(build_param_groups(model, wd), lr=lr)
     if accelerator.is_main_process:
         logging.info(f"Optimizer=AdamW, lr={lr}, weight_decay={wd}, fused={optimizer_kwargs.get('fused', False)}")
 
@@ -585,15 +595,15 @@ def train(config: EvoConfig):
     last_log_step = step
     global_peak_allocated_gb = None
     global_peak_reserved_gb = None
-    if torch.cuda.is_available():
-        torch.cuda.reset_peak_memory_stats()
+    if device_utils.device_type(accelerator.device) != "cpu":
+        device_utils.reset_peak_memory_stats(accelerator.device)
         global_peak_allocated_gb = 0.0
         global_peak_reserved_gb = 0.0
 
     # === Training Loop ===
     while step < max_steps:
         for batch in tqdm(dataloader, desc="Training", disable=not accelerator.is_main_process):
-            torch.cuda.reset_peak_memory_stats()
+            device_utils.reset_peak_memory_stats(accelerator.device)
             
             if step >= max_steps:
                 break
@@ -696,9 +706,9 @@ def train(config: EvoConfig):
                 
                 window_max_allocated_gb = None
                 window_max_reserved_gb = None
-                if torch.cuda.is_available():
-                    window_max_allocated_gb = torch.cuda.max_memory_allocated() / (1024 ** 3)
-                    window_max_reserved_gb = torch.cuda.max_memory_reserved() / (1024 ** 3)
+                if device_utils.device_type(accelerator.device) != "cpu":
+                    window_max_allocated_gb = device_utils.max_memory_allocated(accelerator.device) / (1024 ** 3)
+                    window_max_reserved_gb = device_utils.max_memory_reserved(accelerator.device) / (1024 ** 3)
                     global_peak_allocated_gb = max(global_peak_allocated_gb, window_max_allocated_gb) if global_peak_allocated_gb is not None else window_max_allocated_gb
                     global_peak_reserved_gb = max(global_peak_reserved_gb, window_max_reserved_gb) if global_peak_reserved_gb is not None else window_max_reserved_gb
                 
@@ -716,8 +726,8 @@ def train(config: EvoConfig):
                 
                 last_log_time = now
                 last_log_step = step
-                if torch.cuda.is_available():
-                    torch.cuda.reset_peak_memory_stats()
+                if device_utils.device_type(accelerator.device) != "cpu":
+                    device_utils.reset_peak_memory_stats(accelerator.device)
    
             # === Save best checkpoint ===
             loss_value = loss.item()
@@ -767,7 +777,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train Evo-1")
 
     # Basic config
-    parser.add_argument("--device", type=str, default="cuda")
+    parser.add_argument("--device", type=str, default=None, help="torch device (default: xpu, then cuda, then cpu)")
     parser.add_argument("--run_name", type=str, default="default_run")
     parser.add_argument("--vlm_name", type=str, default="OpenGVLab/InternVL3-1B")
     parser.add_argument("--action_head", type=str, default="flowmatching", choices=["flowmatching"])

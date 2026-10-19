@@ -14,17 +14,15 @@ from torch import nn
 import logging
 import functools
 
+import device_utils
+
 logger = logging.getLogger(__name__)
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
 def flash_attn_is_available() -> bool:
-    try:
-        import flash_attn  # noqa: F401
-    except ModuleNotFoundError:
-        return False
-    return True
+    return device_utils.flash_attn_installed()
 
 # === Image Transformations ===
 def build_transform(input_size):
@@ -63,21 +61,19 @@ class InternVL3Embedder(nn.Module):
         self,
         model_name="OpenGVLab/InternVL3-1B",
         image_size=448,
-        device="cuda",
+        device=None,
         enable_gradient_checkpointing: bool = False,
         gradient_checkpointing_use_reentrant: bool = False,
     ):
         super().__init__()
-        self.device = device
+        self.device = device_utils.resolve_device(device)
         self.image_size = image_size
         self.max_text_length = 1024  # InternVL3 supports up to 1024 tokens
         self.enable_gradient_checkpointing = bool(enable_gradient_checkpointing)
         self.gradient_checkpointing_use_reentrant = bool(gradient_checkpointing_use_reentrant)
         self.transform = build_transform(image_size)
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, use_fast=False)
-        use_flash_attn = flash_attn_is_available()
-        if not use_flash_attn:
-            logger.warning("flash_attn is not installed. Falling back to standard attention.")
+        use_flash_attn = device_utils.use_flash_attn(self.device)
         self.model = AutoModel.from_pretrained(
             model_name,
             torch_dtype=torch.bfloat16,

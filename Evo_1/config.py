@@ -5,7 +5,8 @@ from typing import Optional
 @dataclass
 class EvoConfig:
     # Basic config
-    device: str = "cuda"
+    # None selects the best available backend (xpu, then cuda, then cpu).
+    device: Optional[str] = None
     run_name: str = "default_run"
     vlm_name: str = "OpenGVLab/InternVL3-1B"
     action_head: str = "flowmatching"

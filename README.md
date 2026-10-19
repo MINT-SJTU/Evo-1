@@ -60,6 +60,24 @@ pip install -r requirements.txt
 MAX_JOBS=64 pip install -v flash-attn --no-build-isolation
 ```
 
+### How to run the same on Intel's XPU
+
+Skip the flash-attn step above and install the XPU build of PyTorch (2.5 or newer) before the requirements:
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/xpu
+# requirements.txt without its torch and torchvision pins
+grep -v -E '^(torch|torchvision)==' requirements.txt | pip install -r /dev/stdin
+```
+
+Then use the same server command from the benchmark sections below, with the device chosen on the command line. Without `--device` the server picks XPU, then CUDA, then CPU.
+
+```bash
+python scripts/Evo1_server.py --device xpu:0 --ckpt_dir /path/to/save/checkpoint/
+```
+
+Training takes the same `--device xpu` flag (the default is auto detection). Attention falls back to the standard path because flash-attn is CUDA only. DeepSpeed offload, GPU video decoding with decord and the `CUDA_VISIBLE_DEVICES` line in the RoboTwin script stay CUDA oriented.
+
 ----
 
 ## 🧪 Simulation Benchmark

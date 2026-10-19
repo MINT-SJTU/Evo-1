@@ -8,13 +8,14 @@ import torch.nn as nn
 from model.internvl3.internvl3_embedder import InternVL3Embedder
 from model.action_head.flow_matching import FlowmatchingActionHead
 from config import EvoConfig
+import device_utils
 import logging
 
 class EVO1(nn.Module):
     def __init__(self, config: EvoConfig):
         super().__init__() 
         self.config = config
-        self._device = config.device
+        self._device = device_utils.resolve_device(config.device)
         self.return_cls_only = config.return_cls_only
         vlm_name = config.vlm_name
         self.embedder = InternVL3Embedder(

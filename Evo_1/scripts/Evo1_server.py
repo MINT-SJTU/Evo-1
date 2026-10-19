@@ -2,6 +2,7 @@
 
 import sys
 import os
+import argparse
 import asyncio
 import logging
 import websockets
@@ -18,6 +19,7 @@ from fvcore.nn import FlopCountAnalysis
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from scripts.Evo1 import EVO1
 from dataset.lerobot_dataset_pretrain_mp import NormalizationType
+import device_utils
 
 
 
@@ -191,13 +193,16 @@ class Normalizer:
         return denorm_action
 
 
-def load_model_and_normalizer(ckpt_dir):
+def load_model_and_normalizer(ckpt_dir, device=None):
+    device = device_utils.resolve_device(device)
     config_dict = json.load(open(os.path.join(ckpt_dir, "config.json")))
     stats = json.load(open(os.path.join(ckpt_dir, "norm_stats.json")))
 
     config_dict["finetune_vlm"] = False
     config_dict["finetune_action_head"] = False
     config_dict["num_inference_timesteps"] = 50
+    # The checkpoint records the training device (usually "cuda"); serve on the requested one.
+    config_dict["device"] = str(device)
 
     from config import EvoConfig
     config = EvoConfig.from_dict(config_dict)
@@ -206,7 +211,7 @@ def load_model_and_normalizer(ckpt_dir):
 
     checkpoint = torch.load(ckpt_path, map_location="cpu")
     model.load_state_dict(checkpoint["module"], strict=True)
-    model = model.to("cuda")
+    model = model.to(device)
 
     normalization_type = config_dict.get("normalization_type", NormalizationType.BOUNDS.value)
     normalizer = Normalizer(stats, normalization_type=normalization_type)
@@ -215,17 +220,17 @@ def load_model_and_normalizer(ckpt_dir):
 
 
 
-def decode_image_from_list(img_list):
+def decode_image_from_list(img_list, device=None):
     img_array = np.array(img_list, dtype=np.uint8)
     img = cv2.resize(img_array, (448, 448))
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     pil = Image.fromarray(img)
-    return transforms.ToTensor()(pil).to("cuda")
+    return transforms.ToTensor()(pil).to(device_utils.resolve_device(device))
 
 
 
 def infer_from_json_dict(data: dict, model, normalizer, arm_key, dataset_key):
-    device = "cuda"
+    device = next(model.parameters()).device
     model_dtype = next(model.parameters()).dtype
     # Prefer per-request arm_key/dataset_key from the client payload; fall back to the
     # server startup defaults. Needed for multi-task benchmarks (RoboTwin sends
@@ -235,7 +240,7 @@ def infer_from_json_dict(data: dict, model, normalizer, arm_key, dataset_key):
     dataset_key = data.get("dataset_key", dataset_key)
 
   
-    images = [decode_image_from_list(img) for img in data["image"]]
+    images = [decode_image_from_list(img, device) for img in data["image"]]
     assert len(images) == 3, "Must provide exactly 3 images."
     for img in images:
         assert img.shape == (3, 448, 448), "image_size must be (3,448,448)"
@@ -256,7 +261,7 @@ def infer_from_json_dict(data: dict, model, normalizer, arm_key, dataset_key):
     print(f"image_mask,{image_mask}")
     print(f"action_mask,{action_mask}")
     
-    with torch.no_grad() and torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
+    with torch.no_grad() and torch.amp.autocast(device_type=device.type, dtype=torch.bfloat16):
         action = model.run_inference(
             images=images,
             image_mask=image_mask,
@@ -296,8 +301,16 @@ if __name__ == "__main__":
     arm_key = "franka_ee_pose_delta" # Keep the same name as in your norm_stats.json, which is usually the same as the arm name in config.yaml
     dataset_key = "libero_10_no_noops_lerobot"
 
+    parser = argparse.ArgumentParser(description="Evo-1 websocket inference server")
+    parser.add_argument("--device", default=None, help="torch device, for example cuda:0 or xpu:0 (default: xpu, then cuda, then cpu)")
+    parser.add_argument("--ckpt_dir", default=None, help="checkpoint directory (overrides ckpt_dir above)")
+    parser.add_argument("--port", type=int, default=None, help="server port (overrides port above)")
+    args = parser.parse_args()
+    ckpt_dir = args.ckpt_dir or ckpt_dir
+    port = args.port or port
+
     print("Loading EVO_1 model...")
-    model, normalizer = load_model_and_normalizer(ckpt_dir)
+    model, normalizer = load_model_and_normalizer(ckpt_dir, device=args.device)
 
     async def main():
         print(f"EVO_1 server running at ws://0.0.0.0:{port}")
