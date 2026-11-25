@@ -389,42 +389,66 @@ class FlowmatchingActionHead(nn.Module):
         N = int(getattr(self.config, "num_inference_timesteps", 32))
         if N <= 0:
             raise ValueError(f"num_inference_timesteps must be positive, got {N}")
-        dt = 1.0 / N
-        for i in range(N):
-            t = i / N 
 
-            time_index = min(int(t * 999), 999)
-            time_emb = self.time_pos_enc(1000)[:, time_index, :].to(device).squeeze(0).to(dtype=context_tokens.dtype)
-            time_emb = time_emb.unsqueeze(0).repeat(B, 1)  
-
-
-            action_seq = action_seq * action_mask
-            action_tokens = self._project_actions(action_seq, embodiment_id)
-            action_tokens = action_tokens.to(dtype=target_dtype)
-            time_emb = time_emb.to(dtype=target_dtype)
-
-            x = action_tokens
-            for block in self.transformer_blocks:
-                x = block(x, context_tokens, time_emb)
-            x = self.norm_out(x)
-
-            if self.horizon > 1:
-                x_flat = x.reshape(B, -1)
-                x_pooled = self.seq_pool_proj(x_flat)
-            else:
-                x_pooled = x.squeeze(1)
-         
-            pred = self.mlp_head(x_pooled, embodiment_id)  
-  
-            action = action + dt * pred
-          
-            if self.horizon > 1:
-                action_seq = action.view(B, self.horizon, per_action_dim)
-            else:
-                action_seq = action.view(B, 1, per_action_dim)
-      
-        action_seq = action_seq * action_mask
+        action_seq = self.sample_actions(action_seq, context_tokens, action_mask, embodiment_id, N)
         return action_seq.reshape(B, -1)
+
+    def forward_step(self, action_seq, context_tokens, time_emb, embodiment_id, action_mask):
+        """One Euler step of the flow-matching sampler.
+
+        Kept as its own method so the whole integration loop can be handed to
+        ``torch.compile`` in one call (see ``EVO1.enable_compile``).
+
+        Args:
+            action_seq: [B, H, per_action_dim] current sample.
+            context_tokens: [B, S, embed_dim] fused vision-language + state embeddings.
+            time_emb: [B, 1, embed_dim] embedding of the current time step.
+            embodiment_id: [B] category id.
+            action_mask: [B, H, per_action_dim].
+        Returns:
+            [B, action_dim] predicted velocity.
+        """
+        action_seq = action_seq * action_mask
+        action_tokens = self._project_actions(action_seq, embodiment_id).to(dtype=self.dtype)
+        context_tokens = context_tokens.to(dtype=self.dtype)
+        time_emb = time_emb.to(dtype=self.dtype)
+
+        x = action_tokens
+        for block in self.transformer_blocks:
+            x = block(x, context_tokens, time_emb)
+        x = self.norm_out(x)
+
+        if self.horizon > 1:
+            x_pooled = self.seq_pool_proj(x.reshape(x.shape[0], -1))
+        else:
+            x_pooled = x.squeeze(1)
+        return self.mlp_head(x_pooled, embodiment_id)
+
+    def sample_actions(self, action_seq, context_tokens, action_mask, embodiment_id, num_timesteps):
+        """Euler-integrate the flow-matching ODE from `action_seq` to an action chunk.
+
+        Args:
+            action_seq: [B, H, per_action_dim] initial (noise) sample.
+            context_tokens: [B, S, embed_dim] fused vision-language + state embeddings.
+            action_mask: [B, H, per_action_dim].
+            embodiment_id: [B] category id.
+            num_timesteps: number of Euler steps (config.num_inference_timesteps).
+        Returns:
+            [B, H, per_action_dim] action chunk.
+        """
+        B = action_seq.shape[0]
+        dt = 1.0 / num_timesteps
+        action = action_seq.reshape(B, -1)
+        time_pos_enc = self.time_pos_enc(1000)
+        for i in range(num_timesteps):
+            time_index = min(int((i / num_timesteps) * 999), 999)
+            time_emb = time_pos_enc[:, time_index, :].to(device=action.device).squeeze(0).unsqueeze(0)
+            time_emb = time_emb.repeat(B, 1)
+            action = action + dt * self.forward_step(
+                action_seq, context_tokens, time_emb, embodiment_id, action_mask
+            )
+            action_seq = action.view(B, self.horizon, self.per_action_dim)
+        return action_seq * action_mask
 
     @property
     def device(self):

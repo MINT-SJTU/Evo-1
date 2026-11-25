@@ -1,0 +1,23 @@
+# Inference on Intel GPUs (XPU). Install PyTorch for XPU first, then this file:
+#
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/xpu
+#   pip install -r requirements-xpu.txt
+#
+# Same as requirements.txt without deepspeed (training only), without the pinned
+# torch/torchvision (installed from the XPU index above), without swanlab/wandb
+# (training loggers), without accelerator, and with einops (imported by the
+# InternViT remote code) instead of einop. flash-attn is CUDA only and not
+# needed: the embedder falls back to plain attention automatically.
+transformers==4.39.0
+timm
+accelerate
+einops
+diffusers
+ninja
+pandas
+matplotlib
+pyarrow
+websockets
+opencv-python
+av
+fvcore

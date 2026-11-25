@@ -10,6 +10,8 @@ from model.action_head.flow_matching import FlowmatchingActionHead
 from config import EvoConfig
 import logging
 
+logger = logging.getLogger(__name__)
+
 class EVO1(nn.Module):
     def __init__(self, config: EvoConfig):
         super().__init__() 
@@ -128,6 +130,29 @@ class EVO1(nn.Module):
         
         return action
     
+
+    def enable_compile(self, parts: Tuple[str, ...] = ("vit", "llm", "head"), mode: Union[str, None] = None):
+        """Compile the inference graph with ``torch.compile`` (CUDA or XPU).
+
+        Args:
+            parts: subset of ``("vit", "llm", "head")``. ``"vit"`` compiles the
+                InternViT feature extractor, ``"llm"`` the language model body and
+                ``"head"`` the whole flow-matching integration loop.
+            mode: optional ``torch.compile`` mode, e.g. ``"max-autotune"``.
+                ``"reduce-overhead"`` (CUDA graphs) has not been verified on XPU.
+        """
+        kwargs = {"dynamic": False}
+        if mode is not None:
+            kwargs["mode"] = mode
+
+        embedder = self.embedder.model
+        if "vit" in parts:
+            embedder.extract_feature = torch.compile(embedder.extract_feature, **kwargs)
+        if "llm" in parts:
+            embedder.language_model = torch.compile(embedder.language_model, **kwargs)
+        if "head" in parts:
+            self.action_head.sample_actions = torch.compile(self.action_head.sample_actions, **kwargs)
+        logger.info("torch.compile enabled for %s (mode=%s); the first call compiles.", parts, mode)
 
     def forward(self, fused_tokens, state=None, actions_gt=None, action_mask=None, embodiment_ids=None):
    

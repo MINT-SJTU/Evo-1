@@ -9,8 +9,9 @@ from torchvision.transforms.functional import InterpolationMode
 from transformers import AutoModel, AutoTokenizer
 from transformers import GenerationConfig
 from torchvision.transforms.functional import to_pil_image
-from typing import Union, List
+from typing import List, Optional, Union
 from torch import nn
+from config import resolve_device
 import logging
 import functools
 
@@ -63,12 +64,13 @@ class InternVL3Embedder(nn.Module):
         self,
         model_name="OpenGVLab/InternVL3-1B",
         image_size=448,
-        device="cuda",
+        device: Optional[str] = None,
         enable_gradient_checkpointing: bool = False,
         gradient_checkpointing_use_reentrant: bool = False,
     ):
         super().__init__()
-        self.device = device
+        # None resolves to CUDA, then Intel XPU, then CPU.
+        self.device = resolve_device(device)
         self.image_size = image_size
         self.max_text_length = 1024  # InternVL3 supports up to 1024 tokens
         self.enable_gradient_checkpointing = bool(enable_gradient_checkpointing)

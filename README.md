@@ -60,6 +60,33 @@ pip install -r requirements.txt
 MAX_JOBS=64 pip install -v flash-attn --no-build-isolation
 ```
 
+### Run on Intel GPU (XPU)
+
+Inference also runs on Intel GPUs through PyTorch's XPU backend. Install PyTorch for XPU and `Evo_1/requirements-xpu.txt` instead of the last two steps above (`requirements.txt` pins `torch==2.5.1`, and `flash-attn` is CUDA only):
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/xpu
+pip install -r requirements-xpu.txt
+```
+
+The device is resolved to CUDA if it is available, then XPU, then the CPU, so the server and the benchmark clients run on an Intel GPU as they are. To choose the device yourself, pass `--device xpu` (or `cuda:0`, `cpu`) to the server:
+
+```bash
+cd Evo_1
+python scripts/Evo1_server.py --ckpt-dir /path/to/Evo1_MetaWorld --device xpu \
+    --arm-key metaworld_robot --dataset-key metaworld_dataset
+```
+
+`--compile` turns on `torch.compile` for the InternViT, the language model and the flow-matching integration loop (the first call compiles); `--head-dtype bfloat16` casts the action head for that path:
+
+```bash
+python scripts/Evo1_server.py --ckpt-dir /path/to/Evo1_MetaWorld --device xpu \
+    --arm-key metaworld_robot --dataset-key metaworld_dataset \
+    --compile --head-dtype bfloat16
+```
+
+Only inference has been checked on XPU. Training is unchanged and still targets CUDA (DeepSpeed, flash-attn).
+
 ----
 
 ## 🧪 Simulation Benchmark

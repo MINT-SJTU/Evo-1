@@ -1,11 +1,51 @@
 import dataclasses
+import logging
 from dataclasses import dataclass, field, asdict
 from typing import Optional
+
+import torch
+
+logger = logging.getLogger(__name__)
+
+
+def get_default_device() -> str:
+    """Return "cuda" if available, then Intel "xpu", then "cpu"."""
+    if torch.cuda.is_available():
+        return "cuda"
+    if hasattr(torch, "xpu") and torch.xpu.is_available():
+        return "xpu"
+    return "cpu"
+
+
+def resolve_device(device: Optional[str] = None) -> str:
+    """Normalize a requested device string.
+
+    ``None``/``"auto"`` picks the best available device. A ``"cuda"`` request falls
+    back to ``"xpu"`` (or ``"cpu"``) when CUDA is not available, so checkpoints
+    trained on CUDA (whose ``config.json`` stores ``device="cuda"``) load unchanged
+    on other accelerators.
+    """
+    requested = (device or "auto").strip()
+    if requested in ("", "auto"):
+        return get_default_device()
+    if requested.split(":")[0] == "cuda" and not torch.cuda.is_available():
+        target = "xpu" if (hasattr(torch, "xpu") and torch.xpu.is_available()) else "cpu"
+        index = requested.split(":", 1)[1] if ":" in requested else None
+        resolved = f"{target}:{index}" if index is not None else target
+        logger.warning("CUDA is not available; using %s instead of %s", resolved, requested)
+        return resolved
+    return requested
+
+
+def device_type(device: str) -> str:
+    """Device type for ``torch.amp.autocast(device_type=...)``: "xpu" for "xpu:0"."""
+    return str(device).split(":")[0]
+
 
 @dataclass
 class EvoConfig:
     # Basic config
-    device: str = "cuda"
+    device: str = "auto"
     run_name: str = "default_run"
     vlm_name: str = "OpenGVLab/InternVL3-1B"
     action_head: str = "flowmatching"
@@ -71,6 +111,11 @@ class EvoConfig:
     num_heads: int = 8
     num_categories: int = 1
     num_inference_timesteps: int = 50
+
+    def __post_init__(self):
+        # "auto" (and a CUDA request on a machine without CUDA) resolve to the
+        # best available device: CUDA, then Intel XPU, then CPU.
+        self.device = resolve_device(self.device)
 
     def to_dict(self):
         return asdict(self)
